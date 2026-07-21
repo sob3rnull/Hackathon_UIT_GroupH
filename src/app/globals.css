@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* Class-based dark mode — the toggle in the header flips `.dark` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * ── Design tokens ────────────────────────────────────────────────────
+ * Change --accent (and its dark counterpart) and the whole app rebrands:
+ * buttons, focus rings, links, badges and the hero glow all read from it.
+ */
+:root {
+  --background: oklch(0.985 0.003 264);
+  --surface: oklch(1 0 0);
+  --surface-muted: oklch(0.968 0.004 264);
+  --foreground: oklch(0.21 0.02 264);
+  --muted: oklch(0.53 0.016 264);
+  --border: oklch(0.912 0.007 264);
+
+  --accent: oklch(0.55 0.19 264);
+  --accent-hover: oklch(0.49 0.19 264);
+  --accent-foreground: oklch(0.99 0 0);
+  --accent-soft: oklch(0.95 0.03 264);
+
+  --success: oklch(0.6 0.14 155);
+  --warning: oklch(0.72 0.15 75);
+  --danger: oklch(0.58 0.2 25);
+
+  --radius: 0.875rem;
+}
+
+.dark {
+  --background: oklch(0.17 0.012 264);
+  --surface: oklch(0.213 0.014 264);
+  --surface-muted: oklch(0.253 0.016 264);
+  --foreground: oklch(0.95 0.006 264);
+  --muted: oklch(0.685 0.018 264);
+  --border: oklch(0.315 0.017 264);
+
+  --accent: oklch(0.68 0.16 264);
+  --accent-hover: oklch(0.74 0.15 264);
+  --accent-foreground: oklch(0.17 0.02 264);
+  --accent-soft: oklch(0.29 0.05 264);
+
+  --success: oklch(0.72 0.15 155);
+  --warning: oklch(0.79 0.15 75);
+  --danger: oklch(0.68 0.18 25);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --radius-card: var(--radius);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One consistent focus ring everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Soft radial wash behind the hero. */
+  .hero-glow {
+    background-image: radial-gradient(
+      60% 70% at 50% 0%,
+      var(--accent-soft) 0%,
+      transparent 70%
+    );
+  }
+}
