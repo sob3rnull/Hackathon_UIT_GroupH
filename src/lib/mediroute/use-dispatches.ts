@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiResult } from "./types";
 
 /** Mirrors the row shape returned by GET /api/dispatch. */
@@ -52,7 +52,14 @@ export function useDispatches() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // A slow Supabase round trip has been observed taking longer than the poll
+  // interval. Without this guard the ticks would stack up behind it and each
+  // one would land out of order.
+  const inFlight = useRef(false);
+
   const load = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
       const response = await fetch("/api/dispatch");
       const result: ApiResult<DispatchFeed> = await response.json();
@@ -62,6 +69,7 @@ export function useDispatches() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to load history");
     } finally {
+      inFlight.current = false;
       setLoading(false);
     }
   }, []);
