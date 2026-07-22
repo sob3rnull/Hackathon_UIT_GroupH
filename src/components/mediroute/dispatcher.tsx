@@ -21,11 +21,16 @@ import { VoiceInput } from "@/components/mediroute/voice-input";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import {
+  backendMode,
+  getPlan,
+  runTriage,
+  sendDispatch,
+} from "@/lib/mediroute/backend";
+import {
   conditions,
   severities,
   specialtyFor,
   type AmbulanceSelection,
-  type ApiResult,
   type Condition,
   type LatLng,
   type Recommendation,
@@ -38,12 +43,6 @@ const DEFAULT_INCIDENT: LatLng = { lat: 16.7769, lng: 96.1592 };
 
 const EXAMPLE =
   "55M, crushing central chest pain radiating to left arm, diaphoretic, BP 90/60, GCS 14";
-
-interface TriageResponse {
-  triage: Triage;
-  source: "claude" | "keyword";
-  note?: string;
-}
 
 const severityTone: Record<Severity, "danger" | "warning" | "success"> = {
   critical: "danger",
@@ -88,86 +87,61 @@ export function Dispatcher() {
       .catch(() => setAiAvailable(false));
   }, []);
 
-  /** Step 1 of the 119 flow: which vehicle goes to the patient. */
-  const pickFleet = useCallback(async (at: LatLng) => {
-    try {
-      const response = await fetch("/api/ambulances", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ incident: at }),
-      });
-      const result: ApiResult<AmbulanceSelection> = await response.json();
-      if (!result.ok) throw new Error(result.error);
-      setFleetPick(result.data);
-      setAssignedId((current) =>
-        current && result.data.candidates.some((c) => c.ambulance.id === current)
-          ? current
-          : (result.data.candidates[0]?.ambulance.id ?? null),
-      );
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Fleet lookup failed");
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void pickFleet(incident);
-  }, [incident, fleetRevision, pickFleet]);
-
-  /** Step 2: which hospital the patient goes to. */
+  /**
+   * One planning call covers both steps of the 119 flow: which vehicle goes to
+   * the patient, and which hospital the patient goes to. n8n answers it in a
+   * single round trip; the local backend composes the same shape from two
+   * routes. See lib/mediroute/backend.ts.
+   */
   const rank = useCallback(async (t: Triage, at: LatLng, silent = false) => {
     if (!silent) setRanking(true);
     setActionError(null);
     try {
-      const response = await fetch("/api/recommend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ triage: t, origin: at }),
-      });
-      const result: ApiResult<Recommendation> = await response.json();
-      if (!result.ok) throw new Error(result.error);
-      setRec(result.data);
-      setSelectedId((current) =>
-        current && result.data.ranked.some((r) => r.hospital.id === current)
+      const plan = await getPlan(t, at);
+
+      setFleetPick(plan.fleet);
+      setAssignedId((current) =>
+        current && plan.fleet.candidates.some((c) => c.ambulance.id === current)
           ? current
-          : (result.data.ranked[0]?.hospital.id ?? null),
+          : (plan.fleet.candidates[0]?.ambulance.id ?? null),
+      );
+
+      setRec(plan.hospitals);
+      setSelectedId((current) =>
+        current && plan.hospitals.ranked.some((r) => r.hospital.id === current)
+          ? current
+          : (plan.hospitals.ranked[0]?.hospital.id ?? null),
       );
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Ranking failed");
+      setActionError(cause instanceof Error ? cause.message : "Planning failed");
     } finally {
       setRanking(false);
     }
   }, []);
 
-  // Live re-rank when hospital capacity changes elsewhere.
+  // Live re-plan when hospital capacity or fleet status changes elsewhere.
   useEffect(() => {
-    if (revision === 0 || !triage) return;
-    // Reacting to an external realtime event (a capacity change on another
-    // machine) — the documented escape hatch for this rule. Once per event.
+    if ((revision === 0 && fleetRevision === 0) || !triage) return;
+    // Reacting to an external realtime event (a change on another machine) —
+    // the documented escape hatch for this rule. Once per event.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStaleNotice(true);
     void rank(triage, incident, true);
     const timer = setTimeout(() => setStaleNotice(false), 4000);
     return () => clearTimeout(timer);
-  }, [revision, triage, incident, rank]);
+  }, [revision, fleetRevision, triage, incident, rank]);
 
   async function handleTriage() {
     setTriaging(true);
     setActionError(null);
     setDispatched(null);
     try {
-      const response = await fetch("/api/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note }),
-      });
-      const result: ApiResult<TriageResponse> = await response.json();
-      if (!result.ok) throw new Error(result.error);
+      const result = await runTriage(note);
 
-      setTriage(result.data.triage);
-      setSource(result.data.source);
-      setSourceNote(result.data.note ?? null);
-      await rank(result.data.triage, incident);
+      setTriage(result.triage);
+      setSource(result.source);
+      setSourceNote(result.note ?? null);
+      await rank(result.triage, incident);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Triage failed");
     } finally {
@@ -201,27 +175,21 @@ export function Dispatcher() {
 
     setActionError(null);
     try {
-      const response = await fetch("/api/dispatch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hospital_id: chosen.hospital.id,
-          recommended_hospital_id: rec.ranked[0]?.hospital.id ?? null,
-          ambulance_id: assigned?.ambulance.id ?? null,
-          patient_note: note,
-          condition: rec.triage.condition,
-          severity: rec.triage.severity,
-          required_specialty: rec.triage.requiredSpecialty,
-          needs_icu: rec.triage.needsICU,
-          eta_minutes: Math.round(chosen.etaMinutes),
-          response_eta_minutes: Math.round(assigned?.responseMinutes ?? 0),
-          incident_lat: incident.lat,
-          incident_lng: incident.lng,
-          input_mode: inputMode,
-        }),
+      await sendDispatch({
+        hospital_id: chosen.hospital.id,
+        recommended_hospital_id: rec.ranked[0]?.hospital.id ?? null,
+        ambulance_id: assigned?.ambulance.id ?? null,
+        patient_note: note,
+        condition: rec.triage.condition,
+        severity: rec.triage.severity,
+        required_specialty: rec.triage.requiredSpecialty,
+        needs_icu: rec.triage.needsICU,
+        eta_minutes: Math.round(chosen.etaMinutes),
+        response_eta_minutes: Math.round(assigned?.responseMinutes ?? 0),
+        incident_lat: incident.lat,
+        incident_lng: incident.lng,
+        input_mode: inputMode,
       });
-      const result = await response.json();
-      if (!result.ok) throw new Error(result.error);
 
       setDispatched({
         hospital: chosen.hospital.name,
@@ -391,10 +359,15 @@ export function Dispatcher() {
                 Click to move the incident. Squares are ambulances reporting GPS.
               </CardDescription>
             </div>
-            <Badge tone={live ? "success" : "neutral"}>
-              <Radio className="size-3" />
-              {live ? "Realtime" : "Polling"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge tone={backendMode === "n8n" ? "accent" : "neutral"}>
+                {backendMode === "n8n" ? "n8n backend" : "local backend"}
+              </Badge>
+              <Badge tone={live ? "success" : "neutral"}>
+                <Radio className="size-3" />
+                {live ? "Realtime" : "Polling"}
+              </Badge>
+            </div>
           </CardHeader>
           <CardBody>
             {loading ? (

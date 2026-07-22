@@ -53,6 +53,62 @@ dispatcher sees both numbers rather than one blended ETA.
 
 ---
 
+## The backend is an n8n workflow
+
+**Workflow:** [MediRoute API](https://dontwannacode.app.n8n.cloud/workflow/poWIRrVi6X58C8jH)
+· 17 nodes · published
+
+| Route | Does |
+|---|---|
+| `POST /webhook/mediroute/triage` | Claude extracts structured triage; falls back to keyword matching |
+| `POST /webhook/mediroute/plan` | Reads hospitals + fleet from Supabase, runs selection and ranking |
+| `POST /webhook/mediroute/dispatch` | Records the dispatch, marks the ambulance transporting |
+| *Schedule, every 2 min* | IoT heartbeat — refreshes GPS fixes for reporting vehicles |
+
+Switch the frontend between backends with one env var:
+
+```bash
+# n8n backend
+NEXT_PUBLIC_MEDIROUTE_API=https://dontwannacode.app.n8n.cloud/webhook
+# blank = local Next.js route handlers
+NEXT_PUBLIC_MEDIROUTE_API=
+```
+
+A badge on the dispatcher says which one is live, so you always know what you're
+demoing. The local routes are kept deliberately: n8n Cloud is a network
+dependency, and if the venue drops it you flip one variable instead of losing
+the backend.
+
+### The two copies problem, and how it's handled
+
+Moving ranking into an n8n Code node means the logic the tests cover is no
+longer the logic that runs. Two copies of the most important algorithm in the
+project would drift silently.
+
+So there is exactly one source: [`n8n/ranking-core.js`](n8n/ranking-core.js).
+That file is embedded verbatim in the workflow's Code node **and** loaded by
+[`n8n-parity.test.ts`](src/lib/mediroute/n8n-parity.test.ts), which asserts it
+returns the same scores, ordering, reasons and rejection strings as the
+TypeScript engine across every severity, ICU flag and edge case. Change one,
+change both, re-run `npm test`, redeploy.
+
+Verified live: for the seeded critical-cardiac scenario, n8n and the local
+engine both return Thingangyun Sanpya at `0.619` and North Okkalapa at `0.269`,
+with identical exclusions.
+
+### Before the AI triage route works
+
+The Claude node is currently **disabled**, because its credential is a
+placeholder — the workflow could not be published with it enabled, and the API
+key is yours to enter, not something to hand round. Until then the triage route
+answers with the keyword fallback and says so.
+
+To turn it on: add an Anthropic credential in n8n, then enable
+**Extract Triage With Claude** and publish. A disabled node passes data through,
+which is why the route works either way.
+
+---
+
 ## Where the data comes from
 
 **Hospital availability** — the prototype uses a table edited by hand on `/hospital`.
@@ -71,12 +127,18 @@ agreement per hospital, and a staleness policy. A dead feed must degrade to
 *unknown* — never to "zero beds" (which silently hides a hospital that could help)
 and never to a cached optimistic number (which sends an ambulance to a full hospital).
 
-**Ambulance position** — from an on-board IoT unit reporting GPS to
-`/api/ambulances/[id]`. **Certification is the gate:** a vehicle without a fitted
-device reports no position, cannot be tracked, and is therefore never dispatchable —
-even when it is the closest vehicle to the patient. A GPS fix older than 10 minutes
-is treated as no fix at all, because dispatching on a stale position is worse than
-not dispatching.
+**Ambulance position** — from an on-board IoT unit. The units are **always
+online**, reporting position continuously. **Certification is the gate:** a
+vehicle without a fitted device reports no position, cannot be tracked, and is
+therefore never dispatchable — even when it is the closest vehicle to the
+patient. A GPS fix older than 10 minutes is treated as no fix at all, because
+dispatching on a stale position is worse than not dispatching.
+
+> That staleness rule bit during testing and is worth knowing about. The seed
+> stamps `gps_fix_at` once, so ten minutes later **every vehicle was rejected as
+> stale and the fleet list was empty.** The n8n schedule now refreshes fixes
+> every 2 minutes, standing in for the devices' own reporting. If you re-seed
+> and the fleet looks empty, that's why — check the fix ages on `/fleet`.
 
 ---
 
@@ -171,12 +233,12 @@ supabase/migrations/ ← schema + seed
 - **The offline path is real** — blank the env vars and everything still works with
   seeded data and keyword triage. Try it once before demo day so you've seen it.
 
-- **Voice input is the one part that needs the network.** `SpeechRecognition` streams
-  audio to the browser vendor, and it is Chrome/Edge only. Everything else in
-  MediRoute works offline; this doesn't. The typing field is always visible and is the
-  fallback — demo the voice path first, but never make it load-bearing. A real
-  in-ambulance device would want an on-device model anyway (noisy cabin, no
-  connectivity, and clinical audio shouldn't leave the vehicle).
+- **Voice input needs the network, and so does the n8n backend.** Since the IoT
+  units are always online, cloud speech is a fine production choice — the
+  constraint is the demo room, not the product. `SpeechRecognition` is Chrome/Edge
+  only, so the typing field stays visible as the fallback. If the venue network is
+  unreliable, blank `NEXT_PUBLIC_MEDIROUTE_API` to run the backend locally; only
+  voice is then unavailable.
 
 ### Seeded fleet scenario
 
