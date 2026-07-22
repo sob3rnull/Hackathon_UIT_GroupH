@@ -13,7 +13,7 @@ import {
  *
  * Middleware decides which dashboard you land on. It cannot stop a crafted
  * request to /api/*, so the actual enforcement is the RLS policies in
- * migration 0005, plus role checks inside each Route Handler. Treat anything
+ * migration 0007, plus role checks inside each Route Handler. Treat anything
  * here as UX, not protection.
  */
 export async function middleware(request: NextRequest) {
@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Role rides in the JWT via profiles -> app_metadata (see 0005), so reading
+  // Role rides in the JWT via profiles -> app_metadata (see 0007), so reading
   // it costs nothing. Absent means no profiles row was created for this user.
   const role = user.app_metadata?.role;
   if (!isRole(role)) {

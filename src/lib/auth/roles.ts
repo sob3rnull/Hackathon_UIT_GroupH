@@ -1,4 +1,4 @@
-/** The three MediRoute roles. Mirrors profiles.role in migration 0005. */
+/** The three MediRoute roles. Mirrors profiles.role in migration 0007. */
 export type Role = "dispatcher" | "ambulance" | "hospital";
 
 export const ROLES: Role[] = ["dispatcher", "ambulance", "hospital"];

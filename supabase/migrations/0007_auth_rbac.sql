@@ -1,4 +1,4 @@
--- Auth + RBAC. NOT YET APPLIED — read the warning before running.
+-- Auth + RBAC (was 0005; renumbered to 0007 to sit after the donations work). NOT YET APPLIED — read the warning before running.
 --
 -- ⚠ THIS MIGRATION REMOVES THE "anon full access" POLICIES.
 -- The app currently has no sign-in, so the moment this runs every page that

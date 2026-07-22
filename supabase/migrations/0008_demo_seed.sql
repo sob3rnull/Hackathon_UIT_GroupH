@@ -1,4 +1,4 @@
--- Demo data for the walkthrough. NOT YET APPLIED. Run AFTER 0005.
+-- Demo data for the walkthrough. NOT YET APPLIED. Run AFTER 0007.
 --
 -- Everything here is fictional. It exists so the three dashboards have
 -- something to show before anyone touches a live incident.

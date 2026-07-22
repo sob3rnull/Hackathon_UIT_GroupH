@@ -51,7 +51,7 @@ export function createAdminClient() {
  * What `@/lib/mediroute/store` actually uses.
  *
  * Deliberately the COOKIE-AWARE client, not the service-role one: it carries
- * the signed-in user's JWT, so the RLS policies in migration 0005 are what
+ * the signed-in user's JWT, so the RLS policies in migration 0007 are what
  * actually decide who may read and write. Using the admin key here would
  * silently bypass every policy and make them decorative.
  *
