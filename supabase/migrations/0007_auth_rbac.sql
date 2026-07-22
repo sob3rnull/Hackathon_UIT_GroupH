@@ -38,6 +38,12 @@ create table if not exists public.profiles (
   ambulance_id uuid references public.ambulances(id)    on delete set null,
   created_at   timestamptz not null default now(),
 
+  -- ambulance_id is a permanent binding, decided deliberately: a crew member
+  -- belongs to one vehicle. If crews ever rotate per shift this becomes a
+  -- crew_assignments table and the two crew policies below turn into
+  -- subqueries against it, which costs an index lookup per row instead of the
+  -- claim comparison they use today.
+
   -- each role carries exactly the scope it needs, and no other
   constraint profiles_scope_ck check (
     (role = 'dispatcher' and hospital_id is null and ambulance_id is null)

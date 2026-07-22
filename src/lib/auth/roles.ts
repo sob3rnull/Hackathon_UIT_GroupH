@@ -17,6 +17,11 @@ export const HOME: Record<Role, string> = {
 /**
  * Which roles may enter which route prefix. Order matters: the first matching
  * prefix wins, so list more specific paths first if they ever overlap.
+ *
+ * /fleet and /history are dispatcher-only by decision, not oversight: crews
+ * see their own vehicle and their own jobs, and neither screen is scoped to
+ * the signed-in crew. Opening them to 'ambulance' would show every vehicle and
+ * every past dispatch, which the RLS policies would then have to contradict.
  */
 export const GUARD: ReadonlyArray<readonly [string, readonly Role[]]> = [
   ["/dispatcher", ["dispatcher"]],
