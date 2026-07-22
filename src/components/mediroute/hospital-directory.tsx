@@ -9,10 +9,18 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { HospitalStatusBadge } from "@/components/mediroute/status";
+import { cn } from "@/lib/utils";
 import { describeHospital } from "@/lib/mediroute/describe";
 import { useDonations } from "@/lib/mediroute/use-donations";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
-import type { ApiResult, Donation, Hospital } from "@/lib/mediroute/types";
+import {
+  paymentMethodLabel,
+  paymentMethods,
+  type ApiResult,
+  type Donation,
+  type Hospital,
+  type PaymentMethod,
+} from "@/lib/mediroute/types";
 
 const mmk = new Intl.NumberFormat("en-US");
 
@@ -90,6 +98,10 @@ export function HospitalDirectory() {
   const [amount, setAmount] = React.useState("");
   const [hospitalId, setHospitalId] = React.useState("");
   const [message, setMessage] = React.useState("");
+  const [method, setMethod] = React.useState<PaymentMethod>("kbz_pay");
+  // Card fields are purely visual — they are never sent and never stored.
+  const [cardNumber, setCardNumber] = React.useState("");
+  const [cardExpiry, setCardExpiry] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
   const pickHospital = (id: string) => {
@@ -108,6 +120,10 @@ export function HospitalDirectory() {
       toast({ tone: "danger", title: "Please enter a valid amount" });
       return;
     }
+    if (method === "card" && cardNumber.replace(/\D/g, "").length < 12) {
+      toast({ tone: "danger", title: "Please enter a valid card number" });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -119,6 +135,7 @@ export function HospitalDirectory() {
           donor_name: donorName.trim(),
           amount: value,
           message,
+          payment_method: method,
         }),
       });
       const result: ApiResult<Donation> = await response.json();
@@ -128,10 +145,12 @@ export function HospitalDirectory() {
         hospitals.find((h) => h.id === hospitalId)?.short_name ?? "the general fund";
       toast({
         title: `Thank you, ${donorName.trim()}!`,
-        description: `MMK ${mmk.format(value)} recorded for ${target}.`,
+        description: `MMK ${mmk.format(value)} via ${paymentMethodLabel[method]} recorded for ${target}.`,
       });
       setAmount("");
       setMessage("");
+      setCardNumber("");
+      setCardExpiry("");
       void donations.reload();
     } catch (cause) {
       toast({
@@ -248,6 +267,70 @@ export function HospitalDirectory() {
                     ))}
                   </Select>
                 </Field>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-foreground">
+                    Payment method
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {paymentMethods.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setMethod(option)}
+                        aria-pressed={method === option}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors",
+                          method === option
+                            ? "border-accent bg-accent-soft text-accent-hover dark:text-accent"
+                            : "border-border bg-background text-muted hover:border-accent/40 hover:text-foreground",
+                        )}
+                      >
+                        {paymentMethodLabel[option]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {method === "card" ? (
+                  <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
+                    <Field label="Card number" htmlFor="card-number">
+                      <Input
+                        id="card-number"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        placeholder="4242 4242 4242 4242"
+                        maxLength={23}
+                      />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Expiry" htmlFor="card-expiry">
+                        <Input
+                          id="card-expiry"
+                          autoComplete="off"
+                          value={cardExpiry}
+                          onChange={(e) => setCardExpiry(e.target.value)}
+                          placeholder="12/29"
+                          maxLength={5}
+                        />
+                      </Field>
+                      <Field label="CVC" htmlFor="card-cvc">
+                        <Input
+                          id="card-cvc"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          placeholder="123"
+                          maxLength={4}
+                        />
+                      </Field>
+                    </div>
+                    <p className="text-xs text-muted">
+                      Demo — card details never leave this page and are not stored.
+                    </p>
+                  </div>
+                ) : null}
 
                 <Field label="Message (optional)" htmlFor="donor-message">
                   <Textarea

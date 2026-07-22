@@ -344,9 +344,9 @@ function seedDonations(): Donation[] {
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   return [
-    { id: "don-1", hospital_id: "mem-1", donor_name: "Daw Khin Myo", amount: 150000, message: "For the ER team.", created_at: hourAgo },
-    { id: "don-2", hospital_id: "mem-3", donor_name: "U Aung Ko", amount: 80000, message: "", created_at: dayAgo },
-    { id: "don-3", hospital_id: "mem-1", donor_name: "Anonymous", amount: 50000, message: "Keep going!", created_at: dayAgo },
+    { id: "don-1", hospital_id: "mem-1", donor_name: "Daw Khin Myo", amount: 150000, message: "For the ER team.", payment_method: "kbz_pay", created_at: hourAgo },
+    { id: "don-2", hospital_id: "mem-3", donor_name: "U Aung Ko", amount: 80000, message: "", payment_method: "aya_pay", created_at: dayAgo },
+    { id: "don-3", hospital_id: "mem-1", donor_name: "Anonymous", amount: 50000, message: "Keep going!", payment_method: "card", created_at: dayAgo },
   ];
 }
 
@@ -360,6 +360,7 @@ export interface DonationInput {
   donor_name: string;
   amount: number;
   message: string;
+  payment_method: string;
 }
 
 export async function createDonation(input: DonationInput): Promise<Donation> {

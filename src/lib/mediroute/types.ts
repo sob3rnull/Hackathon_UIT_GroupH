@@ -150,6 +150,26 @@ export interface Recommendation {
 
 /* ── Donations (public page; demo flow, no payment processing) ─────────── */
 
+/** Myanmar wallets + banks + international cards. Recorded, never charged. */
+export const paymentMethods = [
+  "kbz_pay",
+  "aya_pay",
+  "wave_money",
+  "cb_pay",
+  "bank_transfer",
+  "card",
+] as const;
+export type PaymentMethod = (typeof paymentMethods)[number];
+
+export const paymentMethodLabel: Record<PaymentMethod, string> = {
+  kbz_pay: "KBZPay (K-pay)",
+  aya_pay: "AYA Pay",
+  wave_money: "Wave Money",
+  cb_pay: "CB Pay",
+  bank_transfer: "Myanmar bank transfer",
+  card: "Credit / Visa card",
+};
+
 export interface Donation {
   id: string;
   /** Null means the general fund rather than a specific hospital. */
@@ -157,6 +177,8 @@ export interface Donation {
   donor_name: string;
   amount: number;
   message: string;
+  /** One of paymentMethods; empty string on rows from before the field. */
+  payment_method: string;
   created_at: string;
 }
 

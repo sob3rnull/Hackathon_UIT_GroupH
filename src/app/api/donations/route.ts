@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createDonation, donationTotals, listDonations } from "@/lib/mediroute/store";
+import { paymentMethods } from "@/lib/mediroute/types";
 
 const bodySchema = z.object({
   hospital_id: z.string().min(1).nullable().default(null),
   donor_name: z.string().trim().min(1, "Please tell us your name").max(80),
   amount: z.number().positive("Amount must be positive").max(10_000_000),
   message: z.string().max(500).default(""),
+  // Recorded for display only — no gateway is called, nothing is charged.
+  payment_method: z.enum(paymentMethods),
 });
 
 /** Record a donation. Demo flow — no payment gateway, the row is the receipt. */
