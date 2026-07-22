@@ -4,6 +4,8 @@ import { updateDispatch } from "@/lib/mediroute/store";
 
 const bodySchema = z.object({
   dispatch_id: z.string().min(1),
+  /** The crew's own description — may extend or replace the dispatcher's optional note. */
+  patient_note: z.string().max(2000).default(""),
   condition: z.string().default("general"),
   severity: z.string().default("urgent"),
   required_specialty: z.string().default("general"),
@@ -38,6 +40,7 @@ export async function POST(request: Request) {
 
   const {
     dispatch_id,
+    patient_note,
     condition,
     severity,
     required_specialty,
@@ -51,6 +54,7 @@ export async function POST(request: Request) {
 
   try {
     const row = await updateDispatch(dispatch_id, {
+      patient_note,
       condition,
       severity,
       required_specialty,

@@ -142,6 +142,7 @@ export async function assignAmbulance(
 
 export interface ConfirmMissionPayload {
   dispatch_id: string;
+  patient_note: string;
   condition: string;
   severity: string;
   required_specialty: string;

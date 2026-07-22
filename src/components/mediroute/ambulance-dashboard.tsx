@@ -14,7 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select } from "@/components/ui/field";
+import { Field, Select, Textarea } from "@/components/ui/field";
 import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -27,6 +27,7 @@ import { HospitalChoiceList } from "@/components/mediroute/hospital-choice-list"
 import { ReasonList } from "@/components/mediroute/reasons";
 import { AmbulanceRouteMap } from "@/components/mediroute/ambulance-route-map";
 import { TriageSummary, type TriageSource } from "@/components/mediroute/triage-summary";
+import { VoicePlaceholder } from "@/components/mediroute/voice-placeholder";
 import { confirmMission, getHospitalPlan, runTriage } from "@/lib/mediroute/backend";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
@@ -69,6 +70,9 @@ export function AmbulanceDashboard() {
   const [busy, setBusy] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
+
+  /** The crew's own description — seeded from the dispatcher's optional note, editable. */
+  const [crewNote, setCrewNote] = useState("");
 
   const [triage, setTriage] = useState<Triage | null>(null);
   const [triageSource, setTriageSource] = useState<TriageSource>(null);
@@ -124,13 +128,14 @@ export function AmbulanceDashboard() {
   useEffect(() => {
     if (mission?.id !== missionIdRef.current) {
       missionIdRef.current = mission?.id ?? null;
+      setCrewNote(mission?.patient_note ?? "");
       setTriage(null);
       setTriageSource(null);
       setTriageSourceNote(null);
       setHospitalPlan(null);
       setPickedHospitalId(null);
     }
-  }, [mission?.id]);
+  }, [mission?.id, mission?.patient_note]);
 
   /** Triage already on the mission if confirmed, otherwise the crew's own draft. */
   const knownTriage = triage ??
@@ -223,11 +228,11 @@ export function AmbulanceDashboard() {
   }
 
   async function handleRunTriage() {
-    if (!mission) return;
+    if (!mission || crewNote.trim().length < 3) return;
     setTriaging(true);
     setWriteError(null);
     try {
-      const result = await runTriage(mission.patient_note);
+      const result = await runTriage(crewNote);
       setTriage(result.triage);
       setTriageSource(result.source);
       setTriageSourceNote(result.note ?? null);
@@ -259,6 +264,7 @@ export function AmbulanceDashboard() {
     try {
       await confirmMission({
         dispatch_id: mission.id,
+        patient_note: crewNote,
         condition: triage.condition,
         severity: triage.severity,
         required_specialty: triage.requiredSpecialty,
@@ -380,14 +386,16 @@ export function AmbulanceDashboard() {
                 </div>
               ) : null}
 
-              <div className="flex flex-col gap-1.5">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                  Patient
-                </p>
-                <p className="text-lg leading-snug">
-                  {mission.patient_note || "No description recorded"}
-                </p>
-              </div>
+              {mission.hospital_id ? (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted">
+                    Patient
+                  </p>
+                  <p className="text-lg leading-snug">
+                    {mission.patient_note || "No description recorded"}
+                  </p>
+                </div>
+              ) : null}
 
               {destination ? (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -438,18 +446,35 @@ export function AmbulanceDashboard() {
         </CardBody>
       </Card>
 
-      {/* ── Run triage — the crew's own AI call, not dispatch's ──────────── */}
+      {/* ── Patient description + triage — the crew's own, not dispatch's ─── */}
       {needsTriage ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Run triage</CardTitle>
+            <CardTitle className="text-lg">Patient description</CardTitle>
             <CardDescription>
-              Extract condition, severity and required specialty from the
-              patient description above.
+              {mission?.patient_note
+                ? "Dispatch's note is pre-filled below — extend it, then run triage."
+                : "Dispatch sent no note. Describe the patient, then run triage."}
             </CardDescription>
           </CardHeader>
-          <CardBody className="flex flex-col gap-3">
-            <Button onClick={handleRunTriage} disabled={triaging} className="self-start">
+          <CardBody className="flex flex-col gap-4">
+            <VoicePlaceholder />
+
+            <Field label="Description" htmlFor="crew-note">
+              <Textarea
+                id="crew-note"
+                value={crewNote}
+                onChange={(event) => setCrewNote(event.target.value)}
+                rows={4}
+                placeholder="e.g. 30F, motorcycle collision, open tibia fracture, alert"
+              />
+            </Field>
+
+            <Button
+              onClick={handleRunTriage}
+              disabled={triaging || crewNote.trim().length < 3}
+              className="self-start"
+            >
               {triaging ? <Spinner /> : <Sparkles className="size-4" />}
               {triaging ? "Triaging…" : "Run triage"}
             </Button>

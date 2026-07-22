@@ -298,6 +298,7 @@ export async function createDispatch(input: DispatchInput): Promise<DispatchRow>
  */
 export type DispatchConfirmPatch = Pick<
   DispatchRow,
+  | "patient_note"
   | "condition"
   | "severity"
   | "required_specialty"

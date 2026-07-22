@@ -19,9 +19,6 @@ import { MapPanel } from "./map-panel";
 
 const DEFAULT_INCIDENT: LatLng = { lat: 16.7769, lng: 96.1592 };
 
-const EXAMPLE =
-  "55M, crushing central chest pain radiating to left arm, diaphoretic, BP 90/60, GCS 14";
-
 /** Timestamps for the timeline. Written in handlers or the poll-driven effect below, never during render. */
 interface Marks {
   call: number | null;
@@ -55,8 +52,7 @@ export function Dispatcher() {
 
   const [incident, setIncident] = useState<LatLng>(DEFAULT_INCIDENT);
 
-  const [note, setNote] = useState(EXAMPLE);
-  const [inputMode, setInputMode] = useState<"text" | "voice">("text");
+  const [note, setNote] = useState("");
 
   const [fleetPick, setFleetPick] = useState<AmbulanceSelection | null>(null);
   const [assignedId, setAssignedId] = useState<string | null>(null);
@@ -158,7 +154,7 @@ export function Dispatcher() {
         response_eta_minutes: Math.round(candidate.responseMinutes),
         incident_lat: incident.lat,
         incident_lng: incident.lng,
-        input_mode: inputMode,
+        input_mode: "text",
       });
 
       setAssignedDispatchId(row.id);
@@ -187,7 +183,11 @@ export function Dispatcher() {
     {
       label: "Call received",
       at: marks.call,
-      detail: marks.call ? note.slice(0, 80) : "Waiting for a 119 call",
+      detail: marks.call
+        ? note.trim()
+          ? note.slice(0, 80)
+          : "No note — location only"
+        : "Waiting for a 119 call",
     },
     {
       label: "Ambulance assigned",
@@ -219,7 +219,6 @@ export function Dispatcher() {
         <IntakePanel
           note={note}
           onNoteChange={setNote}
-          onModeChange={setInputMode}
           onFindAmbulances={handleFindAmbulances}
           finding={planning}
         />
