@@ -35,7 +35,10 @@ function etaMinutes(distanceKm) {
 
 function clamp01(n) { return Math.min(1, Math.max(0, n)); }
 
-var UNACCEPTABLE_MINUTES = 45;
+// Raised from 45 once real Google Routes times replaced haversine estimates:
+// measured Yangon driving times run ~1.7x the straight-line guess, so 45 was
+// clipping hospitals that are genuinely reachable down to a zero travel score.
+var UNACCEPTABLE_MINUTES = 60;
 var STALE_GPS_MINUTES = 10;
 var DOCTORS_FOR_FULL_SCORE = 2;
 
@@ -125,10 +128,18 @@ function scoreOne(hospital, triage, distanceKm, eta) {
   };
 }
 
-function recommend(hospitals, triage, origin) {
+// `travel` holds real Routes API times keyed by id. Absent means fall back to
+// haversine, which is what keeps this working with no network and no API key.
+function recommend(hospitals, triage, origin, travel) {
   var measured = hospitals.map(function (hospital) {
-    var distanceKm = haversineKm(origin, hospital);
-    return { hospital: hospital, distanceKm: distanceKm, eta: etaMinutes(distanceKm) };
+    var real = travel ? travel[hospital.id] : null;
+    var distanceKm = real && real.distanceKm != null
+      ? real.distanceKm
+      : haversineKm(origin, hospital);
+    var eta = real && real.etaMinutes != null
+      ? real.etaMinutes
+      : etaMinutes(distanceKm);
+    return { hospital: hospital, distanceKm: distanceKm, eta: eta };
   });
 
   var run = function (applyCriticalRules) {
@@ -169,7 +180,7 @@ function recommend(hospitals, triage, origin) {
   };
 }
 
-function selectAmbulance(ambulances, incident, nowMs) {
+function selectAmbulance(ambulances, incident, nowMs, travel) {
   var candidates = [];
   var rejected = [];
 
@@ -209,11 +220,14 @@ function selectAmbulance(ambulances, incident, nowMs) {
       return;
     }
 
-    var distanceKm = haversineKm(incident, { lat: ambulance.lat, lng: ambulance.lng });
+    var real = travel ? travel[ambulance.id] : null;
+    var distanceKm = real && real.distanceKm != null
+      ? real.distanceKm
+      : haversineKm(incident, { lat: ambulance.lat, lng: ambulance.lng });
     candidates.push({
       ambulance: ambulance,
       distanceKm: distanceKm,
-      responseMinutes: etaMinutes(distanceKm)
+      responseMinutes: real && real.etaMinutes != null ? real.etaMinutes : etaMinutes(distanceKm)
     });
   });
 

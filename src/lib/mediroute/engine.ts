@@ -20,8 +20,27 @@ import type {
  * that is silently backwards.
  */
 
-/** Travel time at or beyond this many minutes scores zero. */
-export const UNACCEPTABLE_MINUTES = 45;
+/**
+ * Travel time at or beyond this many minutes scores zero.
+ *
+ * Raised from 45 once real Google Routes times replaced haversine estimates:
+ * measured Yangon driving times run roughly 1.7x the straight-line guess
+ * (Sule Pagoda to Thingangyun Sanpya is 15 min as the crow flies, 26 min by
+ * road in traffic). At 45 the ceiling was clipping hospitals that are in fact
+ * reachable, flattening their travel term to zero and letting the other terms
+ * decide alone.
+ */
+export const UNACCEPTABLE_MINUTES = 60;
+
+/**
+ * Real travel times, keyed by hospital or ambulance id, supplied by the Routes
+ * API. When absent the engine falls back to haversine — which is what keeps
+ * the app working with no network and no API key.
+ */
+export type TravelOverrides = Record<
+  string,
+  { etaMinutes: number; distanceKm: number }
+>;
 
 /**
  * A GPS fix older than this is treated as no fix at all — the vehicle may have
@@ -158,6 +177,7 @@ export function selectAmbulance(
   ambulances: Ambulance[],
   incident: LatLng,
   now: Date = new Date(),
+  travel?: TravelOverrides,
 ): AmbulanceSelection {
   const candidates: AmbulanceCandidate[] = [];
   const rejected: AmbulanceRejection[] = [];
@@ -197,14 +217,15 @@ export function selectAmbulance(
       continue;
     }
 
-    const distanceKm = haversineKm(incident, {
-      lat: ambulance.lat,
-      lng: ambulance.lng,
-    });
+    const real = travel?.[ambulance.id];
+    const distanceKm =
+      real?.distanceKm ??
+      haversineKm(incident, { lat: ambulance.lat, lng: ambulance.lng });
+
     candidates.push({
       ambulance,
       distanceKm,
-      responseMinutes: etaMinutes(distanceKm),
+      responseMinutes: real?.etaMinutes ?? etaMinutes(distanceKm),
     });
   }
 
@@ -220,10 +241,16 @@ export function recommend(
   hospitals: Hospital[],
   triage: Triage,
   origin: LatLng,
+  travel?: TravelOverrides,
 ): Recommendation {
   const measured = hospitals.map((hospital) => {
-    const distanceKm = haversineKm(origin, hospital);
-    return { hospital, distanceKm, eta: etaMinutes(distanceKm) };
+    const real = travel?.[hospital.id];
+    const distanceKm = real?.distanceKm ?? haversineKm(origin, hospital);
+    return {
+      hospital,
+      distanceKm,
+      eta: real?.etaMinutes ?? etaMinutes(distanceKm),
+    };
   });
 
   const run = (applyCriticalRules: boolean) => {

@@ -18,12 +18,20 @@ import type { Ambulance, Hospital, LatLng, Severity, Triage } from "./types";
 
 const CORE_PATH = join(process.cwd(), "n8n", "ranking-core.js");
 
+type Travel = Record<string, { etaMinutes: number; distanceKm: number }>;
+
 interface Core {
-  recommend: typeof recommend;
+  recommend: (
+    hospitals: Hospital[],
+    triage: Triage,
+    origin: LatLng,
+    travel?: Travel,
+  ) => ReturnType<typeof recommend>;
   selectAmbulance: (
     ambulances: Ambulance[],
     incident: LatLng,
     nowMs: number,
+    travel?: Travel,
   ) => ReturnType<typeof selectAmbulance>;
 }
 
@@ -170,6 +178,95 @@ describe("n8n Code node matches the TypeScript engine", () => {
         );
       });
     }
+  });
+
+  it("agrees when real Routes API times are supplied instead of haversine", () => {
+    // Measured Google Routes values for the seeded Yangon scenario. Both
+    // implementations must consume them identically, or the n8n backend would
+    // rank on real times while the tests still rank on straight lines.
+    const hospitals = [
+      hospital({ id: "thingangyun", lat: 16.8206, lng: 96.1897, icu_beds_free: 4 }),
+      hospital({ id: "newYangon", lat: 16.7743, lng: 96.142 }),
+      hospital({ id: "northOkkalapa", lat: 16.9086, lng: 96.1706 }),
+    ];
+    const travel: Travel = {
+      thingangyun: { etaMinutes: 26.3, distanceKm: 8.1 },
+      newYangon: { etaMinutes: 7.8, distanceKm: 3.4 },
+      northOkkalapa: { etaMinutes: 45.0, distanceKm: 16.6 },
+    };
+
+    for (const severity of SEVERITIES) {
+      const triage: Triage = {
+        condition: "cardiac",
+        severity,
+        requiredSpecialty: "cardiology",
+        needsICU: false,
+        redFlags: [],
+        confidence: 1,
+      };
+
+      const ts = recommend(hospitals, triage, ORIGIN, travel);
+      const js = core.recommend(hospitals, triage, ORIGIN, travel);
+
+      expect(js.ranked.map((r) => r.hospital.id)).toEqual(
+        ts.ranked.map((r) => r.hospital.id),
+      );
+      js.ranked.forEach((entry, i) => {
+        expect(entry.score).toBeCloseTo(ts.ranked[i].score, 12);
+        expect(entry.etaMinutes).toBe(ts.ranked[i].etaMinutes);
+        expect(entry.reasons).toEqual(ts.ranked[i].reasons);
+      });
+
+      // The supplied time must actually be used, not silently ignored in
+      // favour of the haversine estimate.
+      const top = js.ranked.find((r) => r.hospital.id === "thingangyun");
+      expect(top?.etaMinutes).toBe(26.3);
+    }
+
+    const fleet = [
+      amb({ id: "near", lat: 16.7801, lng: 96.1571 }),
+      amb({ id: "far", lat: 16.865, lng: 96.172 }),
+    ];
+    const fleetTravel: Travel = {
+      near: { etaMinutes: 2.4, distanceKm: 0.9 },
+      far: { etaMinutes: 31.7, distanceKm: 12.2 },
+    };
+
+    const tsFleet = selectAmbulance(fleet, ORIGIN, NOW, fleetTravel);
+    const jsFleet = core.selectAmbulance(fleet, ORIGIN, NOW.getTime(), fleetTravel);
+
+    expect(jsFleet.candidates.map((c) => c.ambulance.id)).toEqual(
+      tsFleet.candidates.map((c) => c.ambulance.id),
+    );
+    expect(jsFleet.candidates[0].responseMinutes).toBe(2.4);
+  });
+
+  it("falls back to haversine for any id the Routes API did not return", () => {
+    // A partial matrix response must not silently drop a hospital.
+    const hospitals = [
+      hospital({ id: "measured", lat: 16.8206, lng: 96.1897 }),
+      hospital({ id: "unmeasured", lat: 16.79, lng: 96.16 }),
+    ];
+    const travel: Travel = { measured: { etaMinutes: 26.3, distanceKm: 8.1 } };
+    const triage: Triage = {
+      condition: "cardiac",
+      severity: "urgent",
+      requiredSpecialty: "cardiology",
+      needsICU: false,
+      redFlags: [],
+      confidence: 1,
+    };
+
+    const ts = recommend(hospitals, triage, ORIGIN, travel);
+    const js = core.recommend(hospitals, triage, ORIGIN, travel);
+
+    expect(js.ranked.length).toBe(2);
+    expect(js.ranked.map((r) => r.hospital.id)).toEqual(
+      ts.ranked.map((r) => r.hospital.id),
+    );
+    js.ranked.forEach((entry, i) => {
+      expect(entry.etaMinutes).toBeCloseTo(ts.ranked[i].etaMinutes, 12);
+    });
   });
 
   it("the core file stays sandbox-safe: no imports, exports, or network calls", () => {
