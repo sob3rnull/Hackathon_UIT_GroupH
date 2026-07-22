@@ -153,6 +153,13 @@ export function IncidentMap({
 
         return (
           <g key={hospital.id} opacity={isExcluded ? 0.32 : 1}>
+            {/* Name and status on hover only — the panel list beside the map
+                already names every hospital; painting text for all of them
+                here just adds clutter. */}
+            <title>
+              {hospital.name}
+              {isExcluded ? " — ineligible" : ""}
+            </title>
             {highlighted ? (
               <circle cx={x} cy={y} r="15" fill="var(--accent)" opacity="0.18" />
             ) : null}
@@ -170,27 +177,6 @@ export function IncidentMap({
               stroke="var(--surface)"
               strokeWidth="2"
             />
-            <text
-              x={x}
-              y={y - 14}
-              textAnchor="middle"
-              fontSize="11"
-              fontWeight={highlighted ? 700 : 500}
-              fill="var(--foreground)"
-            >
-              {hospital.short_name}
-            </text>
-            {isExcluded ? (
-              <text
-                x={x}
-                y={y + 22}
-                textAnchor="middle"
-                fontSize="9"
-                fill="var(--muted)"
-              >
-                ineligible
-              </text>
-            ) : null}
           </g>
         );
       })}
@@ -203,6 +189,9 @@ export function IncidentMap({
 
         return (
           <g key={ambulance.id} opacity={dispatchable || isAssigned ? 1 : 0.4}>
+            <title>
+              {ambulance.callsign} ({ambulance.status})
+            </title>
             <rect
               x={x - 5}
               y={y - 5}
@@ -219,16 +208,6 @@ export function IncidentMap({
               stroke={isAssigned ? "var(--warning)" : "var(--muted)"}
               strokeWidth="2"
             />
-            <text
-              x={x}
-              y={y + 18}
-              textAnchor="middle"
-              fontSize="9"
-              fontWeight={isAssigned ? 700 : 400}
-              fill={isAssigned ? "var(--warning)" : "var(--muted)"}
-            >
-              {ambulance.callsign}
-            </text>
           </g>
         );
       })}

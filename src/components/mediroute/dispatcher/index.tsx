@@ -1,27 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Radio, ShieldCheck } from "lucide-react";
+import { Radio } from "lucide-react";
 import { ErrorState } from "@/components/ui/states";
 import { Section } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { googleMapsAvailable } from "@/components/mediroute/google-map";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useFleet } from "@/lib/mediroute/use-fleet";
-import { getPlan, runTriage, sendDispatch } from "@/lib/mediroute/backend";
+import { useDispatches } from "@/lib/mediroute/use-dispatches";
+import { assignAmbulance, getFleetPlan, runTriage } from "@/lib/mediroute/backend";
 import {
   specialtyFor,
   type AmbulanceSelection,
   type LatLng,
-  type Recommendation as RecommendationResult,
   type Triage,
 } from "@/lib/mediroute/types";
 import { AmbulanceList } from "./ambulance-list";
-import { HospitalList } from "./hospital-list";
+import { AssignmentPanel } from "./assignment-panel";
 import { IncidentTimeline, type TimelineStep } from "./incident-timeline";
 import { IntakePanel } from "./intake-panel";
 import { MapPanel } from "./map-panel";
-import { Recommendation } from "./recommendation";
 import { TriageSummary, type TriageSource } from "./triage-summary";
 
 const DEFAULT_INCIDENT: LatLng = { lat: 16.7769, lng: 96.1592 };
@@ -29,28 +28,34 @@ const DEFAULT_INCIDENT: LatLng = { lat: 16.7769, lng: 96.1592 };
 const EXAMPLE =
   "55M, crushing central chest pain radiating to left arm, diaphoretic, BP 90/60, GCS 14";
 
-/** Timestamps for the timeline. Written in handlers, never during render. */
+/** Timestamps for the timeline. Written in handlers or the poll-driven effect below, never during render. */
 interface Marks {
   call: number | null;
   triaged: number | null;
-  planned: number | null;
-  dispatched: number | null;
+  assigned: number | null;
+  hospitalChosen: number | null;
 }
 
-const NO_MARKS: Marks = { call: null, triaged: null, planned: null, dispatched: null };
+const NO_MARKS: Marks = { call: null, triaged: null, assigned: null, hospitalChosen: null };
 
 /**
  * The dispatch console.
  *
- * This component owns state and sequencing only; every section it renders is a
- * sibling module in this folder. It talks to the backend through
- * lib/mediroute/backend.ts, which decides whether that means n8n or the local
- * route handlers — the ranking itself lives in neither place and is untouched
- * by anything here.
+ * The dispatcher's job ends at assigning a vehicle: take the call, run
+ * triage, pick the nearest dispatchable ambulance. Which hospital the patient
+ * goes to is the crew's call, made on their own tablet once they're rolling
+ * — see ambulance-dashboard.tsx. This component still shows that choice once
+ * it's made (polling the same dispatch row it created), but never offers to
+ * make it.
+ *
+ * Talks to the backend through lib/mediroute/backend.ts, which decides
+ * whether that means n8n or the local route handlers — the ranking itself
+ * lives in neither place and is untouched by anything here.
  */
 export function Dispatcher() {
-  const { hospitals, loading, error, live, revision } = useHospitals();
+  const { hospitals, loading, error, live } = useHospitals();
   const { ambulances, revision: fleetRevision } = useFleet();
+  const { dispatches } = useDispatches();
   const toast = useToast();
 
   const [incident, setIncident] = useState<LatLng>(DEFAULT_INCIDENT);
@@ -64,32 +69,16 @@ export function Dispatcher() {
 
   const [fleetPick, setFleetPick] = useState<AmbulanceSelection | null>(null);
   const [assignedId, setAssignedId] = useState<string | null>(null);
-
-  const [rec, setRec] = useState<RecommendationResult | null>(null);
-  const [ranking, setRanking] = useState(false);
+  const [planning, setPlanning] = useState(false);
   const [staleNotice, setStaleNotice] = useState(false);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
+  const [assignedDispatchId, setAssignedDispatchId] = useState<string | null>(null);
   const [marks, setMarks] = useState<Marks>(NO_MARKS);
-
-  /**
-   * A snapshot, not a pointer. Confirming a dispatch flips the vehicle to
-   * "transporting", which drops it out of the next plan — without the snapshot
-   * the confirmation banner would erase itself a second after appearing.
-   */
-  const [dispatched, setDispatched] = useState<{
-    hospital: string;
-    callsign: string | null;
-    response: number;
-    transport: number;
-  } | null>(null);
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
 
-  // Google map when a key exists; drops to the offline SVG on load failure or
-  // by hand. The toggle exists so the offline path can be rehearsed, not
-  // discovered live on stage.
   const [mapMode, setMapMode] = useState<"google" | "svg">(
     googleMapsAvailable ? "google" : "svg",
   );
@@ -101,65 +90,66 @@ export function Dispatcher() {
       .catch(() => setAiAvailable(false));
   }, []);
 
-  /**
-   * One planning call covers both steps of the 119 flow: which vehicle goes to
-   * the patient, and which hospital the patient goes to. n8n answers it in a
-   * single round trip; the local backend composes the same shape from two
-   * routes. See lib/mediroute/backend.ts.
-   */
-  const rank = useCallback(async (t: Triage, at: LatLng, silent = false) => {
-    if (!silent) setRanking(true);
+  const planFleet = useCallback(async (t: Triage, at: LatLng, silent = false) => {
+    if (!silent) setPlanning(true);
     setActionError(null);
     try {
-      const plan = await getPlan(t, at);
-
-      setFleetPick(plan.fleet);
+      const fleet = await getFleetPlan(t, at);
+      setFleetPick(fleet);
       setAssignedId((current) =>
-        current && plan.fleet.candidates.some((c) => c.ambulance.id === current)
+        current && fleet.candidates.some((c) => c.ambulance.id === current)
           ? current
-          : (plan.fleet.candidates[0]?.ambulance.id ?? null),
+          : (fleet.candidates[0]?.ambulance.id ?? null),
       );
-
-      setRec(plan.hospitals);
-      setSelectedId((current) =>
-        current && plan.hospitals.ranked.some((r) => r.hospital.id === current)
-          ? current
-          : (plan.hospitals.ranked[0]?.hospital.id ?? null),
-      );
-
-      setMarks((current) => ({ ...current, planned: current.planned ?? Date.now() }));
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Planning failed");
     } finally {
-      setRanking(false);
+      setPlanning(false);
     }
   }, []);
 
-  // Live re-plan when hospital capacity or fleet status changes elsewhere.
+  // Live re-plan when fleet status changes elsewhere — hospital capacity
+  // doesn't affect who's dispatchable, so unlike before this only watches
+  // fleetRevision. Stops once assigned: this incident's fleet decision is
+  // already made, so further fleet churn from OTHER incidents is noise here.
   //
-  // Debounced 1.2s: each plan call costs real Google Routes elements, and a
-  // staff member clicking a bed counter five times fires five realtime events.
-  // The cleanup cancels the pending call on every new event, so a burst
-  // coalesces into ONE Routes call after the clicking stops. The banner still
-  // appears immediately so the dispatcher knows a change is inbound.
+  // Debounced 1.2s for the same reason as the write side of any Routes call:
+  // a burst of fleet events should coalesce into one re-plan.
   useEffect(() => {
-    if ((revision === 0 && fleetRevision === 0) || !triage) return;
+    if (fleetRevision === 0 || !triage || assignedDispatchId) return;
     // Reacting to an external realtime event (a change on another machine) —
     // the documented escape hatch for this rule. Once per event.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStaleNotice(true);
-    const planTimer = setTimeout(() => void rank(triage, incident, true), 1200);
+    const planTimer = setTimeout(() => void planFleet(triage, incident, true), 1200);
     const noticeTimer = setTimeout(() => setStaleNotice(false), 4000);
     return () => {
       clearTimeout(planTimer);
       clearTimeout(noticeTimer);
     };
-  }, [revision, fleetRevision, triage, incident, rank]);
+  }, [fleetRevision, triage, incident, assignedDispatchId, planFleet]);
+
+  // Once assigned, watch the same dispatch row for the crew's hospital pick
+  // landing (polled via useDispatches) — the dispatcher can see the decision
+  // happen without ever being offered to make it.
+  const assignedDispatch = assignedDispatchId
+    ? (dispatches.find((d) => d.id === assignedDispatchId) ?? null)
+    : null;
+  const assignedHospitalName = assignedDispatch?.hospital_id
+    ? hospitals.find((h) => h.id === assignedDispatch.hospital_id)?.short_name
+    : null;
+
+  useEffect(() => {
+    if (assignedHospitalName && marks.hospitalChosen === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMarks((current) => ({ ...current, hospitalChosen: Date.now() }));
+    }
+  }, [assignedHospitalName, marks.hospitalChosen]);
 
   async function handleTriage() {
     setTriaging(true);
     setActionError(null);
-    setDispatched(null);
+    setAssignedDispatchId(null);
     setMarks({ ...NO_MARKS, call: Date.now() });
 
     try {
@@ -170,7 +160,7 @@ export function Dispatcher() {
       setSourceNote(result.note ?? null);
       setMarks((current) => ({ ...current, triaged: Date.now() }));
 
-      await rank(result.triage, incident);
+      await planFleet(result.triage, incident);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Triage failed");
     } finally {
@@ -185,66 +175,58 @@ export function Dispatcher() {
     setTriage(next);
     setSource("manual");
     setSourceNote(null);
-    setDispatched(null);
-    void rank(next, incident);
+    setAssignedDispatchId(null);
+    void planFleet(next, incident);
   }
 
   function moveIncident(point: LatLng) {
     setIncident(point);
-    setDispatched(null);
-    if (triage) void rank(triage, point);
+    setAssignedDispatchId(null);
+    if (triage) void planFleet(triage, point);
   }
 
-  async function confirmDispatch() {
-    if (!rec || !selectedId) return;
-    const chosen = rec.ranked.find((r) => r.hospital.id === selectedId);
-    if (!chosen) return;
-
-    const assignedCandidate = fleetPick?.candidates.find(
-      (c) => c.ambulance.id === assignedId,
-    );
+  async function confirmAssign() {
+    if (!triage || !assignedId) return;
+    const candidate = fleetPick?.candidates.find((c) => c.ambulance.id === assignedId);
+    if (!candidate) return;
 
     setActionError(null);
+    setAssigning(true);
     try {
-      await sendDispatch({
-        hospital_id: chosen.hospital.id,
-        recommended_hospital_id: rec.ranked[0]?.hospital.id ?? null,
-        ambulance_id: assignedCandidate?.ambulance.id ?? null,
+      const row = await assignAmbulance({
+        ambulance_id: candidate.ambulance.id,
         patient_note: note,
-        condition: rec.triage.condition,
-        severity: rec.triage.severity,
-        required_specialty: rec.triage.requiredSpecialty,
-        needs_icu: rec.triage.needsICU,
-        eta_minutes: Math.round(chosen.etaMinutes),
-        response_eta_minutes: Math.round(assignedCandidate?.responseMinutes ?? 0),
+        condition: triage.condition,
+        severity: triage.severity,
+        required_specialty: triage.requiredSpecialty,
+        needs_icu: triage.needsICU,
+        response_eta_minutes: Math.round(candidate.responseMinutes),
         incident_lat: incident.lat,
         incident_lng: incident.lng,
         input_mode: inputMode,
       });
 
-      setDispatched({
-        hospital: chosen.hospital.name,
-        callsign: assignedCandidate?.ambulance.callsign ?? null,
-        response: Math.round(assignedCandidate?.responseMinutes ?? 0),
-        transport: Math.round(chosen.etaMinutes),
-      });
-      setMarks((current) => ({ ...current, dispatched: Date.now() }));
-
+      setAssignedDispatchId(row.id);
+      setMarks((current) => ({ ...current, assigned: Date.now() }));
       toast({
-        title: `${assignedCandidate?.ambulance.callsign ?? "Ambulance"} dispatched`,
-        description: `${chosen.hospital.short_name} pre-alerted.`,
+        title: `${candidate.ambulance.callsign} assigned`,
+        description: "Choosing a hospital is now on their tablet.",
       });
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Dispatch failed";
+      const message = cause instanceof Error ? cause.message : "Assignment failed";
       setActionError(message);
-      toast({ title: "Dispatch failed", description: message, tone: "danger" });
+      toast({ title: "Assignment failed", description: message, tone: "danger" });
+    } finally {
+      setAssigning(false);
     }
   }
 
-  const excludedIds = new Set(rec?.excluded.map((e) => e.hospital.id) ?? []);
-  const topId = rec?.ranked[0]?.hospital.id ?? null;
-  const assigned = fleetPick?.candidates.find((c) => c.ambulance.id === assignedId);
-  const chosen = rec?.ranked.find((r) => r.hospital.id === selectedId);
+  const candidate = fleetPick?.candidates.find((c) => c.ambulance.id === assignedId);
+  const assignedCallsign = assignedDispatchId
+    ? (candidate?.ambulance.callsign ??
+      ambulances.find((a) => a.id === assignedDispatch?.ambulance_id)?.callsign ??
+      null)
+    : null;
 
   const timeline: TimelineStep[] = [
     {
@@ -263,22 +245,15 @@ export function Dispatcher() {
     },
     {
       label: "Ambulance assigned",
-      at: marks.planned,
-      detail: assigned
-        ? `${assigned.ambulance.callsign} · ${Math.round(assigned.responseMinutes)} min to scene`
+      at: marks.assigned,
+      detail: assignedCallsign
+        ? `${assignedCallsign} · ${Math.round(candidate?.responseMinutes ?? 0)} min to scene`
         : null,
     },
     {
-      label: "Hospital selected",
-      at: marks.planned,
-      detail: chosen
-        ? `${chosen.hospital.short_name} · ${Math.round(chosen.etaMinutes)} min transport`
-        : null,
-    },
-    {
-      label: "Dispatched, ER pre-alerted",
-      at: marks.dispatched,
-      detail: dispatched ? `${dispatched.callsign ?? "Ambulance"} → ${dispatched.hospital}` : null,
+      label: "Hospital chosen by crew",
+      at: marks.hospitalChosen,
+      detail: assignedHospitalName ? `${assignedHospitalName}` : null,
     },
   ];
 
@@ -310,40 +285,34 @@ export function Dispatcher() {
         </div>
       </Section>
 
-      {/* ── Middle: the decision ─────────────────────────────────────────── */}
-      {rec || fleetPick ? (
+      {/* ── Middle: the one decision — which ambulance ───────────────────── */}
+      {fleetPick ? (
         <Section
-          title="Recommendation"
-          description="The system recommends. You decide — and can override either choice below."
+          title="Assign an ambulance"
+          description="Your only decision here. The crew picks the hospital once they're rolling."
         >
           {staleNotice ? (
             <div className="flex items-center gap-2 rounded-card border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
               <Radio className="size-4 shrink-0 text-accent" />
-              Hospital capacity changed elsewhere — recommendation updated.
+              Fleet status changed elsewhere — list updated.
             </div>
           ) : null}
 
-          <Recommendation
-            assigned={assigned}
-            chosen={chosen}
-            isTopHospital={!selectedId || selectedId === topId}
-            ranking={ranking}
-            relaxed={Boolean(rec?.relaxed)}
-            onConfirm={confirmDispatch}
-            dispatched={Boolean(dispatched)}
+          <AssignmentPanel
+            candidate={candidate}
+            planning={planning}
+            assigning={assigning}
+            onConfirm={confirmAssign}
+            assignedCallsign={assignedCallsign}
+            assignedHospitalName={assignedHospitalName}
           />
 
-          {dispatched ? (
-            <div className="flex items-start gap-2 rounded-card border border-success/40 bg-success/12 px-4 py-3 text-sm">
-              <ShieldCheck className="size-4 shrink-0 text-success" />
-              <span>
-                <strong>{dispatched.callsign ?? "Ambulance"}</strong> dispatched to{" "}
-                <strong>{dispatched.hospital}</strong> · pre-alert sent ·{" "}
-                {dispatched.response} min to scene, {dispatched.transport} min to
-                hospital (total {dispatched.response + dispatched.transport} min to
-                definitive care)
-              </span>
-            </div>
+          {!assignedDispatchId ? (
+            <AmbulanceList
+              fleet={fleetPick}
+              assignedId={assignedId}
+              onAssign={setAssignedId}
+            />
           ) : null}
         </Section>
       ) : null}
@@ -351,7 +320,7 @@ export function Dispatcher() {
       {/* ── Bottom: the evidence ─────────────────────────────────────────── */}
       <Section
         title="Situation"
-        description="Everything the recommendation was drawn from."
+        description="Live view of the fleet, hospitals and the incident."
       >
         <div className="flex flex-col gap-4">
           <MapPanel
@@ -366,30 +335,11 @@ export function Dispatcher() {
             }
             onFallback={() => setMapMode("svg")}
             assignedAmbulanceId={assignedId}
-            recommendedId={topId}
-            selectedId={selectedId}
-            excludedIds={excludedIds}
+            recommendedId={null}
+            selectedId={null}
+            excludedIds={new Set()}
             onPickOrigin={moveIncident}
           />
-
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-            <HospitalList
-              rec={rec}
-              selectedId={selectedId}
-              onSelect={(id) => {
-                setSelectedId(id);
-                setDispatched(null);
-              }}
-            />
-            <AmbulanceList
-              fleet={fleetPick}
-              assignedId={assignedId}
-              onAssign={(id) => {
-                setAssignedId(id);
-                setDispatched(null);
-              }}
-            />
-          </div>
 
           <IncidentTimeline steps={timeline} />
         </div>

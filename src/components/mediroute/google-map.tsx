@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { googleMapsAvailable, loadMapsScript, mapThemeColor } from "@/lib/mediroute/maps-loader";
 import type { Ambulance, Hospital, LatLng } from "@/lib/mediroute/types";
 
 /**
- * Google Maps basemap for the dispatcher.
+ * Google Maps basemap for the dispatcher — the fleet/hospital overview, not
+ * any one crew's route (see ambulance-route-map.tsx for that).
  *
  * ── Billing model, because it shapes this whole file ─────────────────────
  * Maps JavaScript API bills PER MAP LOAD — every `new google.maps.Map()` is
@@ -12,7 +14,8 @@ import type { Ambulance, Hospital, LatLng } from "@/lib/mediroute/types";
  * marker moves and polyline updates are free.
  *
  * So the rules here are:
- *   1. The <script> loads once per browser session (module-level promise).
+ *   1. The <script> loads once per browser session (loadMapsScript's
+ *      module-level promise, shared with every other map on the page).
  *   2. The Map object is created ONCE per component mount and reused; every
  *      later prop change only updates overlays, which cost nothing.
  *   3. The dispatcher keeps this component mounted for the whole session —
@@ -20,52 +23,11 @@ import type { Ambulance, Hospital, LatLng } from "@/lib/mediroute/types";
  *      burns another map load.
  * One dispatcher tab open all day ≈ 1 billable load.
  *
- * The key in NEXT_PUBLIC_GOOGLE_MAPS_KEY ships in the bundle by design; its
- * protection is the referrer + API restrictions set in Cloud Console.
  * If the script fails (offline venue, blocked, quota), onFallback fires and
  * the parent swaps in the offline SVG map.
  */
 
-const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
-export const googleMapsAvailable = Boolean(KEY);
-
-declare global {
-  interface Window {
-    __medirouteMapsReady?: () => void;
-  }
-}
-
-let loaderPromise: Promise<typeof google> | null = null;
-
-function loadMapsScript(): Promise<typeof google> {
-  if (loaderPromise) return loaderPromise;
-
-  loaderPromise = new Promise((resolve, reject) => {
-    if (typeof window === "undefined") {
-      reject(new Error("Maps can only load in the browser"));
-      return;
-    }
-    if (window.google?.maps) {
-      resolve(window.google);
-      return;
-    }
-
-    window.__medirouteMapsReady = () => resolve(window.google);
-
-    const script = document.createElement("script");
-    script.async = true;
-    script.src =
-      "https://maps.googleapis.com/maps/api/js" +
-      `?key=${encodeURIComponent(KEY)}&loading=async&callback=__medirouteMapsReady`;
-    script.onerror = () => {
-      loaderPromise = null; // allow a retry on the next mount
-      reject(new Error("Google Maps failed to load"));
-    };
-    document.head.appendChild(script);
-  });
-
-  return loaderPromise;
-}
+export { googleMapsAvailable };
 
 interface GoogleIncidentMapProps {
   hospitals: Hospital[];
@@ -152,16 +114,11 @@ export function GoogleIncidentMap({
       overlaysRef.current.push(overlay);
     };
 
-    const css = (name: string, fallback: string) =>
-      typeof window === "undefined"
-        ? fallback
-        : getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-
-    const accent = css("--accent", "#4c62d6");
-    const danger = css("--danger", "#c73b3b");
-    const warning = css("--warning", "#c78a2b");
-    const success = css("--success", "#2e9e63");
-    const muted = css("--muted", "#8a8f9c");
+    const accent = mapThemeColor("--accent", "#4c62d6");
+    const danger = mapThemeColor("--danger", "#c73b3b");
+    const warning = mapThemeColor("--warning", "#c78a2b");
+    const success = mapThemeColor("--success", "#2e9e63");
+    const muted = mapThemeColor("--muted", "#8a8f9c");
 
     const circle = (color: string, scale: number): google.maps.Symbol => ({
       path: google.maps.SymbolPath.CIRCLE,
@@ -193,7 +150,10 @@ export function GoogleIncidentMap({
     );
     bounds.extend(origin);
 
-    // Hospitals.
+    // Hospitals. No permanent label — the panel list beside the map already
+    // names every hospital; a marker only needs to be findable, which title
+    // (hover) does without redrawing 6+ names across the overview every time
+    // capacity changes.
     for (const hospital of hospitals) {
       const isExcluded = excludedIds?.has(hospital.id) ?? false;
       const highlighted =
@@ -206,12 +166,6 @@ export function GoogleIncidentMap({
             highlighted ? 9 : 7,
           ),
           opacity: isExcluded ? 0.45 : 1,
-          label: {
-            text: hospital.short_name,
-            fontSize: "11px",
-            fontWeight: highlighted ? "700" : "500",
-            className: "mediroute-map-label",
-          },
           title: isExcluded ? `${hospital.name} — ineligible` : hospital.name,
           zIndex: highlighted ? 20 : 10,
         }),
@@ -219,7 +173,7 @@ export function GoogleIncidentMap({
       bounds.extend({ lat: hospital.lat, lng: hospital.lng });
     }
 
-    // Fleet.
+    // Fleet. Same reasoning — callsign on hover, not painted onto the map.
     for (const ambulance of ambulances) {
       if (ambulance.lat === null || ambulance.lng === null) continue;
       const isAssigned = ambulance.id === assignedAmbulanceId;
@@ -230,12 +184,6 @@ export function GoogleIncidentMap({
           position: { lat: ambulance.lat, lng: ambulance.lng },
           icon: square(isAssigned ? warning : dispatchable ? success : muted),
           opacity: dispatchable || isAssigned ? 1 : 0.5,
-          label: {
-            text: ambulance.callsign,
-            fontSize: "10px",
-            fontWeight: isAssigned ? "700" : "400",
-            className: "mediroute-map-label",
-          },
           title: `${ambulance.callsign} (${ambulance.status})`,
           zIndex: isAssigned ? 25 : 5,
         }),

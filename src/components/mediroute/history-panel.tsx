@@ -250,7 +250,7 @@ export function HistoryPanel() {
                       <HospitalIcon className="size-3.5" />
                       {row.hospital_id
                         ? (hospitalName.get(row.hospital_id) ?? "Unknown hospital")
-                        : "No hospital recorded"}
+                        : "Hospital not yet chosen"}
                       {row.eta_minutes
                         ? ` · ${Math.round(row.eta_minutes)} min transport`
                         : null}

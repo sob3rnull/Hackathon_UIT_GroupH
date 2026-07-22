@@ -52,12 +52,15 @@ export function AmbulanceStatusBadge({ status }: { status: AmbulanceStatus }) {
 }
 
 /**
- * The run a crew works through, mapped onto the statuses the schema already
- * allows. "En route" is the state a vehicle is in after accepting, which is
- * why accepting and rolling are one action rather than two.
+ * The run a crew works through from here, mapped onto the statuses the
+ * schema already allows. Deliberately doesn't include "dispatched" — a
+ * vehicle is already dispatched the moment it's assigned (set server-side,
+ * so it drops out of the available pool immediately), so there is no
+ * separate "accept" action left for the crew to press. The current status is
+ * still shown in plain words above this list; it just isn't one of these
+ * buttons.
  */
 export const crewStages = [
-  { status: "dispatched", action: "Accept & roll", done: "En route" },
   { status: "on_scene", action: "Arrived on scene", done: "On scene" },
   { status: "transporting", action: "Patient loaded", done: "Transporting" },
   { status: "available", action: "Complete run", done: "Complete" },

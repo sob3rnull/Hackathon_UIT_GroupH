@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils";
  * The strings come from lib/mediroute/engine.ts verbatim — this module adds no
  * wording of its own, it only decides whether a line reads as a reason to go
  * ("22 beds free") or a caveat to notice ("No ICU bed free", "ER at 95%
- * capacity"), so the dispatcher isn't ticking a green check next to bad news.
+ * capacity"), so nobody is ticking a green check next to bad news.
+ *
+ * Shared by the dispatcher's ambulance justification and the crew's hospital
+ * justification — both are "why this one", just for different decisions.
  */
 
 function isCaution(reason: string): boolean {

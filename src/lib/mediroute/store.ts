@@ -218,7 +218,12 @@ export async function updateAmbulance(
 /* ── Dispatches ────────────────────────────────────────────────────────── */
 
 export interface DispatchInput {
-  hospital_id: string;
+  /**
+   * Null at creation: the dispatcher's job now ends at assigning a vehicle.
+   * The destination is filled in later by chooseDispatchHospital(), once the
+   * crew picks it from their tablet.
+   */
+  hospital_id: string | null;
   recommended_hospital_id: string | null;
   ambulance_id: string | null;
   patient_note: string;
@@ -264,6 +269,37 @@ export async function createDispatch(input: DispatchInput): Promise<DispatchRow>
   const { data, error } = await db
     .from("dispatches")
     .insert(input)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as DispatchRow;
+}
+
+export type DispatchHospitalPatch = Pick<
+  DispatchRow,
+  "hospital_id" | "recommended_hospital_id" | "eta_minutes" | "was_override"
+>;
+
+/** The crew's hospital pick, applied once — on top of the row assignAmbulance created. */
+export async function updateDispatch(
+  id: string,
+  patch: DispatchHospitalPatch,
+): Promise<DispatchRow> {
+  const db = createDataClient();
+
+  if (!db) {
+    const rows = dispatchMemory();
+    const index = rows.findIndex((d) => d.id === id);
+    if (index === -1) throw new Error("Dispatch not found");
+    rows[index] = { ...rows[index], ...patch };
+    return rows[index];
+  }
+
+  const { data, error } = await db
+    .from("dispatches")
+    .update(patch)
+    .eq("id", id)
     .select("*")
     .single();
 

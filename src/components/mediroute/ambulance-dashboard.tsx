@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Ambulance as AmbulanceIcon,
+  Check,
   Hospital as HospitalIcon,
   MapPin,
+  Route as RouteIcon,
   ShieldOff,
   Timer,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
-import { EmptyState, ErrorState, Skeleton } from "@/components/ui/states";
+import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import {
   AmbulanceStatusBadge,
@@ -19,10 +22,20 @@ import {
   ambulanceStatusLabel,
   crewStages,
 } from "@/components/mediroute/status";
+import { HospitalChoiceList } from "@/components/mediroute/hospital-choice-list";
+import { ReasonList } from "@/components/mediroute/reasons";
+import { AmbulanceRouteMap } from "@/components/mediroute/ambulance-route-map";
+import { chooseHospital, getHospitalPlan } from "@/lib/mediroute/backend";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useDispatches } from "@/lib/mediroute/use-dispatches";
-import type { AmbulanceStatus } from "@/lib/mediroute/types";
+import type {
+  AmbulanceStatus,
+  Condition,
+  Recommendation,
+  Severity,
+  Triage,
+} from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
 
 const VEHICLE_KEY = "mediroute:vehicle";
@@ -34,16 +47,28 @@ const VEHICLE_KEY = "mediroute:vehicle";
  *
  * There is no sign-in yet, so the crew picks its own vehicle once and the
  * choice is remembered on the device — the seam where auth will slot in.
+ *
+ * Picks up where the dispatcher leaves off: dispatch assigns a vehicle and
+ * stops there, so a fresh mission always arrives with hospital_id null. This
+ * screen is where that gets filled in — the crew ranks hospitals themselves,
+ * confirms one, and only then does the mission look "complete" to the rest
+ * of the app (History, the dispatcher's timeline).
  */
 export function AmbulanceDashboard() {
   const { ambulances, loading, error, reload } = useFleet();
   const { hospitals } = useHospitals();
-  const { dispatches } = useDispatches();
+  const { dispatches, reload: reloadDispatches } = useDispatches();
   const toast = useToast();
 
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
+
+  const [hospitalPlan, setHospitalPlan] = useState<Recommendation | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [pickedHospitalId, setPickedHospitalId] = useState<string | null>(null);
+  const [choosingHospital, setChoosingHospital] = useState(false);
+  const planMissionRef = useRef<string | null>(null);
 
   // Restore the last vehicle after mount — localStorage isn't readable during
   // render without breaking hydration.
@@ -60,21 +85,94 @@ export function AmbulanceDashboard() {
   /** The newest run assigned to this vehicle. Older ones are history. */
   const mission = useMemo(
     () =>
-      vehicle ? dispatches.find((d) => d.ambulance_id === vehicle.id) ?? null : null,
+      vehicle ? (dispatches.find((d) => d.ambulance_id === vehicle.id) ?? null) : null,
     [dispatches, vehicle],
   );
 
   const destination = useMemo(
     () =>
       mission?.hospital_id
-        ? hospitals.find((h) => h.id === mission.hospital_id) ?? null
+        ? (hospitals.find((h) => h.id === mission.hospital_id) ?? null)
         : null,
     [hospitals, mission],
   );
 
+  // Rank hospitals ourselves once dispatch hands off a mission with no
+  // hospital yet. Guarded on mission id, not on the effect re-running — the
+  // dispatch feed re-polls every 10s and would otherwise re-rank on every
+  // tick for as long as the crew takes to decide.
+  useEffect(() => {
+    if (
+      !mission ||
+      mission.hospital_id ||
+      mission.incident_lat == null ||
+      mission.incident_lng == null
+    ) {
+      return;
+    }
+    if (planMissionRef.current === mission.id) return;
+    planMissionRef.current = mission.id;
+
+    const triage: Triage = {
+      condition: mission.condition as Condition,
+      severity: mission.severity as Severity,
+      requiredSpecialty: mission.required_specialty,
+      needsICU: mission.needs_icu,
+      redFlags: [],
+      confidence: 1,
+    };
+    const incident = { lat: mission.incident_lat, lng: mission.incident_lng };
+
+    setPlanLoading(true);
+    getHospitalPlan(triage, incident)
+      .then((rec) => {
+        setHospitalPlan(rec);
+        setPickedHospitalId(rec.ranked[0]?.hospital.id ?? null);
+      })
+      .catch((cause) => {
+        setWriteError(cause instanceof Error ? cause.message : "Could not rank hospitals");
+      })
+      .finally(() => setPlanLoading(false));
+  }, [mission]);
+
+  // The road leg to draw right now, given where the vehicle is in its run.
+  const currentLeg = useMemo(() => {
+    if (!vehicle || !mission || mission.incident_lat == null || mission.incident_lng == null) {
+      return null;
+    }
+    const scene = { lat: mission.incident_lat, lng: mission.incident_lng };
+
+    if (vehicle.status === "dispatched") {
+      if (vehicle.lat == null || vehicle.lng == null) return null;
+      return {
+        origin: { lat: vehicle.lat, lng: vehicle.lng },
+        destination: scene,
+        originLabel: vehicle.callsign,
+        destinationLabel: "Scene",
+        legColor: "warning" as const,
+      };
+    }
+
+    if (vehicle.status === "on_scene" || vehicle.status === "transporting") {
+      if (!destination) return null;
+      return {
+        origin: scene,
+        destination: { lat: destination.lat, lng: destination.lng },
+        originLabel: "Scene",
+        destinationLabel: destination.short_name,
+        legColor: "accent" as const,
+      };
+    }
+
+    return null;
+  }, [vehicle, mission, destination]);
+
   function chooseVehicle(id: string) {
     setVehicleId(id);
     localStorage.setItem(VEHICLE_KEY, id);
+    planMissionRef.current = null;
+    setHospitalPlan(null);
+    setPickedHospitalId(null);
   }
 
   async function advance(status: AmbulanceStatus, label: string) {
@@ -101,6 +199,34 @@ export function AmbulanceDashboard() {
     }
   }
 
+  async function confirmHospital() {
+    if (!mission || !hospitalPlan || !pickedHospitalId) return;
+    const chosen = hospitalPlan.ranked.find((r) => r.hospital.id === pickedHospitalId);
+    if (!chosen) return;
+
+    setChoosingHospital(true);
+    setWriteError(null);
+    try {
+      await chooseHospital({
+        dispatch_id: mission.id,
+        hospital_id: chosen.hospital.id,
+        recommended_hospital_id: hospitalPlan.ranked[0]?.hospital.id ?? null,
+        eta_minutes: Math.round(chosen.etaMinutes),
+      });
+      await reloadDispatches();
+      toast({
+        title: `Routing to ${chosen.hospital.short_name}`,
+        description: `${Math.round(chosen.etaMinutes)} min transport.`,
+      });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Could not confirm hospital";
+      setWriteError(message);
+      toast({ title: "Could not confirm hospital", description: message, tone: "danger" });
+    } finally {
+      setChoosingHospital(false);
+    }
+  }
+
   if (loading) return <Skeleton rows={4} />;
   if (error) return <ErrorState message={error} />;
 
@@ -115,6 +241,8 @@ export function AmbulanceDashboard() {
   }
 
   const currentStageIndex = crewStages.findIndex((s) => s.status === vehicle.status);
+  const pickedEntry = hospitalPlan?.ranked.find((r) => r.hospital.id === pickedHospitalId);
+  const needsHospital = Boolean(mission && !mission.hospital_id);
 
   return (
     <div className="flex flex-col gap-5">
@@ -204,7 +332,35 @@ export function AmbulanceDashboard() {
                 </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              {destination ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex items-start gap-3 rounded-card border border-border bg-surface-muted/50 p-4">
+                    <MapPin className="mt-1 size-5 shrink-0 text-danger" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium uppercase tracking-wider text-muted">
+                        Scene
+                      </p>
+                      <p className="text-lg font-medium">
+                        {Math.round(mission.response_eta_minutes)} min out
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-card border border-border bg-surface-muted/50 p-4">
+                    <HospitalIcon className="mt-1 size-5 shrink-0 text-accent" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium uppercase tracking-wider text-muted">
+                        Destination
+                      </p>
+                      <p className="text-lg font-medium">{destination.short_name}</p>
+                      <p className="flex items-center gap-1 text-xs text-muted">
+                        <Timer className="size-3" />
+                        {Math.round(mission.eta_minutes)} min transport
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <div className="flex items-start gap-3 rounded-card border border-border bg-surface-muted/50 p-4">
                   <MapPin className="mt-1 size-5 shrink-0 text-danger" />
                   <div className="min-w-0">
@@ -214,35 +370,79 @@ export function AmbulanceDashboard() {
                     <p className="text-lg font-medium">
                       {Math.round(mission.response_eta_minutes)} min out
                     </p>
-                    {mission.incident_lat != null && mission.incident_lng != null ? (
-                      <p className="font-mono text-xs text-muted">
-                        {mission.incident_lat.toFixed(4)},{" "}
-                        {mission.incident_lng.toFixed(4)}
-                      </p>
-                    ) : null}
+                    <p className="text-xs text-muted">Choose the destination below</p>
                   </div>
                 </div>
-
-                <div className="flex items-start gap-3 rounded-card border border-border bg-surface-muted/50 p-4">
-                  <HospitalIcon className="mt-1 size-5 shrink-0 text-accent" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                      Destination
-                    </p>
-                    <p className="text-lg font-medium">
-                      {destination?.short_name ?? "Hospital not found"}
-                    </p>
-                    <p className="flex items-center gap-1 text-xs text-muted">
-                      <Timer className="size-3" />
-                      {Math.round(mission.eta_minutes)} min transport
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </CardBody>
       </Card>
+
+      {/* ── Choose the hospital — the crew's decision, not dispatch's ────── */}
+      {needsHospital ? (
+        <>
+          <HospitalChoiceList
+            rec={hospitalPlan}
+            selectedId={pickedHospitalId}
+            onSelect={setPickedHospitalId}
+          />
+
+          {planLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <Spinner /> Ranking hospitals…
+            </div>
+          ) : null}
+
+          {pickedEntry ? (
+            <Card className="border-accent/40">
+              <CardHeader className="flex-row items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <CardTitle>Recommended because</CardTitle>
+                  <CardDescription>
+                    {pickedEntry.hospital.short_name} · confirming locks in the route
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardBody className="flex flex-col gap-4">
+                <ReasonList reasons={pickedEntry.reasons} />
+                <Button
+                  onClick={confirmHospital}
+                  disabled={choosingHospital}
+                  className="self-start"
+                >
+                  <Check className="size-4" />
+                  {choosingHospital ? "Confirming…" : "Confirm hospital & route"}
+                </Button>
+              </CardBody>
+            </Card>
+          ) : null}
+        </>
+      ) : null}
+
+      {/* ── The road, once there's a leg to show ─────────────────────────── */}
+      {currentLeg ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <RouteIcon className="size-4" />
+              Route
+            </CardTitle>
+            <CardDescription>
+              {currentLeg.originLabel} → {currentLeg.destinationLabel}
+            </CardDescription>
+          </CardHeader>
+          <CardBody>
+            <AmbulanceRouteMap
+              origin={currentLeg.origin}
+              destination={currentLeg.destination}
+              originLabel={currentLeg.originLabel}
+              destinationLabel={currentLeg.destinationLabel}
+              legColor={currentLeg.legColor}
+            />
+          </CardBody>
+        </Card>
+      ) : null}
 
       {/* ── Status ───────────────────────────────────────────────────────── */}
       <Card>

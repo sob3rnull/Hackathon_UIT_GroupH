@@ -8,14 +8,17 @@ import type { Recommendation } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Every eligible hospital, for comparison and override — the full reasoning
- * for whichever one is selected sits in the Recommendation panel above.
+ * The crew's hospital pick. This is the whole decision now — the dispatcher's
+ * job ends at assigning a vehicle, so there's no fallback recommendation
+ * sitting behind this one on another screen.
  *
- * Facts only: beds, ICU, the specialist this patient needs, ER load. The
- * composite score and its weights are deliberately not shown; they are an
- * implementation detail of the ranking, not information a dispatcher acts on.
+ * Facts only per row: beds, ICU, the specialist this patient needs, ER load.
+ * The composite score and its weights are deliberately not shown; they are an
+ * implementation detail of the ranking. Once a row is selected, the caller
+ * shows the full reasons (ReasonList) in a separate confirmation card — this
+ * list is for comparing, not for the final justification.
  */
-export function HospitalList({
+export function HospitalChoiceList({
   rec,
   selectedId,
   onSelect,
@@ -29,12 +32,12 @@ export function HospitalList({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <HospitalIcon className="size-4" />
-          Hospitals
+          Choose the destination
         </CardTitle>
         <CardDescription>
           {rec
             ? `${rec.ranked.length} can take this patient · ${rec.excluded.length} filtered out`
-            : "Ranked once triage has run"}
+            : "Loading eligible hospitals…"}
         </CardDescription>
       </CardHeader>
 
@@ -42,12 +45,12 @@ export function HospitalList({
         {!rec ? (
           <EmptyState
             icon={<HospitalIcon className="size-6" />}
-            title="Nothing ranked yet"
-            body="Run triage to see which hospitals can treat this patient."
+            title="Ranking hospitals…"
+            body="This appears as soon as the plan loads."
           />
         ) : rec.ranked.length === 0 ? (
           <p className="text-sm text-danger">
-            No hospital can take this patient. Escalate manually.
+            No hospital can take this patient. Escalate to dispatch.
           </p>
         ) : (
           rec.ranked.map((entry, index) => {
@@ -66,24 +69,24 @@ export function HospitalList({
                 onClick={() => onSelect(entry.hospital.id)}
                 aria-pressed={isSelected}
                 className={cn(
-                  "flex flex-col gap-1.5 rounded-card border p-3.5 text-left transition-colors",
+                  "flex flex-col gap-1.5 rounded-card border p-4 text-left transition-colors",
                   isSelected
                     ? "border-accent bg-accent-soft"
                     : "border-border bg-surface-muted/50 hover:border-accent/40",
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{entry.hospital.short_name}</span>
+                  <span className="text-lg font-medium">{entry.hospital.short_name}</span>
                   {index === 0 ? <Badge tone="accent">Recommended</Badge> : null}
                   {isSelected && index !== 0 ? (
                     <Badge tone="warning">Your choice</Badge>
                   ) : null}
-                  <span className="ml-auto text-sm font-medium tabular-nums">
+                  <span className="ml-auto text-base font-medium tabular-nums">
                     {Math.round(entry.etaMinutes)} min
                   </span>
                 </div>
 
-                <p className="text-xs text-muted">
+                <p className="text-sm text-muted">
                   {entry.hospital.available_beds} beds ·{" "}
                   {entry.hospital.icu_beds_free} ICU ·{" "}
                   <span className={specialists === 0 ? "text-warning" : undefined}>

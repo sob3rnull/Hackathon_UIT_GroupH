@@ -3,7 +3,12 @@ import { z } from "zod";
 import { createDispatch, listDispatches, updateAmbulance } from "@/lib/mediroute/store";
 
 const bodySchema = z.object({
-  hospital_id: z.string().min(1),
+  /**
+   * Null when the dispatcher creates the row: assigning a vehicle is now the
+   * whole of their job. The crew fills this in later via
+   * POST /api/dispatch/choose-hospital.
+   */
+  hospital_id: z.string().min(1).nullable().default(null),
   recommended_hospital_id: z.string().min(1).nullable(),
   ambulance_id: z.string().min(1).nullable().default(null),
   patient_note: z.string().max(2000).default(""),
@@ -41,19 +46,23 @@ export async function POST(request: Request) {
 
   const input = parsed.data;
   // Derived server-side so the agreement stat can't be skewed by the client.
+  // No hospital chosen yet means nothing to have overridden.
   const was_override =
+    input.hospital_id !== null &&
     input.recommended_hospital_id !== null &&
     input.recommended_hospital_id !== input.hospital_id;
 
   try {
     const row = await createDispatch({ ...input, was_override });
 
-    // Mark the assigned vehicle as transporting so it drops out of the
-    // available pool — otherwise the next incident could be sent the same
-    // ambulance, which is the kind of bug that only shows up on stage.
+    // Mark the assigned vehicle "dispatched" (en route to the scene) so it
+    // drops out of the available pool immediately — otherwise the next
+    // incident could be sent the same ambulance, which is the kind of bug
+    // that only shows up on stage. "Transporting" now means what it says:
+    // the crew has the patient on board, set via their own status buttons.
     if (input.ambulance_id) {
       try {
-        await updateAmbulance(input.ambulance_id, { status: "transporting" });
+        await updateAmbulance(input.ambulance_id, { status: "dispatched" });
       } catch {
         // Non-fatal: the dispatch is already recorded and is the thing that
         // matters. Fleet status can be corrected on the panel.

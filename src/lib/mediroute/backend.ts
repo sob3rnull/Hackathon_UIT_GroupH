@@ -1,12 +1,7 @@
 "use client";
 
-import type {
-  AmbulanceSelection,
-  ApiResult,
-  LatLng,
-  Recommendation,
-  Triage,
-} from "./types";
+import type { AmbulanceSelection, ApiResult, LatLng, Recommendation, Triage } from "./types";
+import type { DispatchRecord } from "./use-dispatches";
 
 /**
  * The one place the frontend decides where the backend lives.
@@ -54,47 +49,123 @@ export async function runTriage(note: string): Promise<TriageResponse> {
   );
 }
 
-export interface Plan {
-  incident: LatLng;
-  fleet: AmbulanceSelection;
-  hospitals: Recommendation;
+/**
+ * Ranked ambulances for an incident. The dispatcher's whole job is this list
+ * plus a pick — hospital ranking happens later, on the crew's own screen.
+ *
+ * Locally this is a dedicated endpoint that doesn't need triage at all. n8n
+ * only exposes the combined /mediroute/plan webhook, so there the same call
+ * that would answer a full plan is made and only its `fleet` half is kept —
+ * one extra hospital-ranking computation on n8n's side, discarded here, which
+ * is cheaper than standing up a second n8n webhook for a subset of a call
+ * that already exists.
+ */
+export async function getFleetPlan(
+  triage: Triage,
+  incident: LatLng,
+): Promise<AmbulanceSelection> {
+  if (N8N_BASE) {
+    const plan = await postJson<{ fleet: AmbulanceSelection }>(
+      `${N8N_BASE}/mediroute/plan`,
+      { triage, incident },
+    );
+    return plan.fleet;
+  }
+  return postJson<AmbulanceSelection>("/api/ambulances", { incident });
 }
 
 /**
- * One planning call. n8n answers it in a single round trip; locally it is two
- * endpoints, composed here so callers see one shape either way.
+ * Ranked hospitals for an incident. Called from the Ambulance page once a
+ * crew's mission has no hospital_id yet — the mirror image of getFleetPlan.
  */
-export async function getPlan(triage: Triage, incident: LatLng): Promise<Plan> {
+export async function getHospitalPlan(
+  triage: Triage,
+  incident: LatLng,
+): Promise<Recommendation> {
   if (N8N_BASE) {
-    return postJson<Plan>(`${N8N_BASE}/mediroute/plan`, { triage, incident });
+    const plan = await postJson<{ hospitals: Recommendation }>(
+      `${N8N_BASE}/mediroute/plan`,
+      { triage, incident },
+    );
+    return plan.hospitals;
   }
-
-  const [fleet, hospitals] = await Promise.all([
-    postJson<AmbulanceSelection>("/api/ambulances", { incident }),
-    postJson<Recommendation>("/api/recommend", { triage, origin: incident }),
-  ]);
-  return { incident, fleet, hospitals };
+  return postJson<Recommendation>("/api/recommend", { triage, origin: incident });
 }
 
-export interface DispatchPayload {
-  hospital_id: string;
-  recommended_hospital_id: string | null;
-  ambulance_id: string | null;
+export interface AssignAmbulancePayload {
+  ambulance_id: string;
   patient_note: string;
   condition: string;
   severity: string;
   required_specialty: string;
   needs_icu: boolean;
-  eta_minutes: number;
   response_eta_minutes: number;
   incident_lat: number;
   incident_lng: number;
   input_mode: "text" | "voice";
 }
 
-export async function sendDispatch(payload: DispatchPayload) {
-  return postJson<{ id: string }>(
+/**
+ * The dispatcher's one write: picks a vehicle, creates the dispatch record
+ * with no hospital yet. Marks the ambulance "dispatched" server-side so it
+ * drops out of the available pool immediately.
+ */
+export async function assignAmbulance(
+  payload: AssignAmbulancePayload,
+): Promise<DispatchRecord> {
+  return postJson<DispatchRecord>(
     N8N_BASE ? `${N8N_BASE}/mediroute/dispatch` : "/api/dispatch",
+    { ...payload, hospital_id: null, recommended_hospital_id: null, eta_minutes: 0 },
+  );
+}
+
+export interface ChooseHospitalPayload {
+  dispatch_id: string;
+  hospital_id: string;
+  recommended_hospital_id: string | null;
+  eta_minutes: number;
+}
+
+/** The crew's write: fills in the hospital on the row assignAmbulance created. */
+export async function chooseHospital(
+  payload: ChooseHospitalPayload,
+): Promise<DispatchRecord> {
+  return postJson<DispatchRecord>(
+    N8N_BASE
+      ? `${N8N_BASE}/mediroute/dispatch/choose-hospital`
+      : "/api/dispatch/choose-hospital",
     payload,
   );
+}
+
+export interface RouteResult {
+  etaMinutes: number;
+  distanceKm: number;
+  /** Encoded polyline, Google's standard algorithm — decode client-side. */
+  polyline: string;
+}
+
+/**
+ * Real road geometry for one leg, for the ambulance page's route map. Always
+ * local — this is a rendering concern, not part of the ranking pipeline, so
+ * it has no n8n equivalent regardless of backendMode.
+ *
+ * Never throws: a missing key or a Google-side failure returns null, and the
+ * map falls back to a straight line rather than breaking the page.
+ */
+export async function getRoute(
+  origin: LatLng,
+  destination: LatLng,
+): Promise<RouteResult | null> {
+  try {
+    const response = await fetch("/api/route", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ origin, destination }),
+    });
+    const result = (await response.json()) as ApiResult<RouteResult>;
+    return result.ok ? result.data : null;
+  } catch {
+    return null;
+  }
 }
