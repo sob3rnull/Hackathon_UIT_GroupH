@@ -4,10 +4,21 @@ Recommends the best hospital for an incoming ambulance — not the *nearest*, bu
 nearest one that is actually *available and equipped* to treat this patient, based on
 live bed occupancy, specialist availability, and ER load.
 
-**Team:** _[fill in]_ · **Event:** _[fill in]_ · 24-hour build
+**Team:** Group H · UIT · 24-hour build
 
 > Revised from the original outline. Changes are marked **[CHANGED]**, **[ADDED]**,
 > or **[CUT]** with the reasoning, so you can overrule any of them.
+
+> **This is an hour-0 planning document, not a spec.** The build has since gone past
+> it in several places — a public landing page with a hospital directory and demo
+> donations was added, and ambulance selection now happens *before* triage (the
+> ranking engine never needed triage to pick a vehicle, only the incident location),
+> so triage and the hospital pick moved to the crew's own screen instead of staying
+> on the dispatcher's. **[README.md](README.md) describes what's actually built and
+> is the one to trust for architecture.** The reasoning below — why the AI has to be
+> in the intake, why the scoring formula is shaped the way it is, why the map is an
+> SVG — is all still the live design; only the demo script, API surface and screen
+> ownership below have moved on.
 
 ---
 
@@ -283,18 +294,20 @@ obvious right answer and an obvious trap:
 
 ## 8. API surface
 
+> **[SUPERSEDED]** — this table is the hour-0 sketch. What's actually built, split
+> across two writes because two different people make two different decisions:
+
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/api/triage` | Free text → structured triage (**new**) |
-| `POST` | `/api/patients` | Create patient from triage result |
-| `GET` | `/api/hospitals` | Hospital list + live status |
-| `PATCH` | `/api/hospitals/:id` | Staff panel updates beds/doctors/queue |
-| `POST` | `/api/recommend` | Run engine → ranked list with reasons |
-| `POST` | `/api/dispatch` | Body `{ patientId, hospitalId, wasOverride }` |
-
-> **[CHANGED]** `POST /api/dispatch/:hospitalId` had no way to say *which patient* was
-> being dispatched — fine with one patient on screen, broken the moment you build the
-> mass-casualty stretch. Put both IDs in the body. `wasOverride` feeds stretch #12.
+| `POST` | `/api/triage` | Free text → structured triage. Called from the **Ambulance** page, not the dispatcher's. |
+| `POST` | `/api/ambulances` | Rank the fleet for an incident — needs only the location |
+| `POST` | `/api/recommend` | Rank hospitals against a triage — the crew's call, not the dispatcher's |
+| `GET` / `PATCH` | `/api/hospitals`, `/api/hospitals/:id` | Live status; staff panel updates beds/doctors/queue |
+| `PATCH` | `/api/ambulances/:id` | Crew's own status buttons (on scene / transporting / complete) |
+| `POST` | `/api/dispatch` | **Dispatcher's write.** Body has an ambulance and an incident, no hospital yet |
+| `POST` | `/api/dispatch/confirm` | **Crew's write.** Same row, now with real triage + the hospital they picked |
+| `POST` | `/api/route` | Real road geometry for the crew's own route map (separate Google endpoint from ranking) |
+| `POST` | `/api/transcribe` | Server-side Whisper transcription for voice intake |
 
 Real-time replaces the three WS events in the original — subscribe to Supabase table
 changes on the client instead of hand-rolling `hospital:update` / `ambulance:location` /
@@ -333,19 +346,32 @@ narrated badly scores below a smaller demo delivered cleanly.
 
 ## 10. Demo script (~3 min)
 
-1. Type the paramedic note in free text. Show the AI resolving it to condition,
-   severity, specialty, red flags. *"No dropdown — this is how a paramedic actually
-   talks."*
-2. Show three hospitals in different states.
-3. Show the ranked recommendation with the reason breakdown. **Land the thesis
-   explicitly:** *"The closest hospital is 4 minutes away. The system chose the one 8
-   minutes away, because the closer one has no cardiologist on duty."*
-4. Have a teammate mark beds taken on the hospital panel — the dispatcher view
-   re-ranks live, no refresh.
-5. Confirm dispatch → hospital receives the pre-alert with ETA and condition.
-6. Close on the override button: *"The system recommends. A human always decides."*
+> **[SUPERSEDED]** — the original had one person doing everything on one screen.
+> The build now splits this across two screens on purpose, which is a *better* demo
+> beat, not a worse one: it makes the "two independent human decisions" safety story
+> physically visible instead of asserted.
 
-Whoever runs the hospital panel in step 4 should be a **second person on a second
+1. On `/dispatcher`: log the incident location (note is optional — you can skip
+   straight to it), click "Find ambulances." **Land this explicitly:** *"The
+   dispatcher's only job is picking a vehicle — that's all the algorithm needs at
+   this point."* Assign the nearest one.
+2. Cut to `/ambulance` on a second device — the crew's tablet. Dictate or type the
+   patient description, run triage, show it resolving to condition, severity,
+   specialty, red flags. *"This is how a paramedic actually talks — and it happens
+   where the patient is, not secondhand over the radio."*
+3. Show the ranked hospitals with the reason breakdown. **Land the core thesis:**
+   *"The closest hospital is 4 minutes away. The system recommends the one 8 minutes
+   away, because the closer one has no cardiologist on duty."*
+4. Have a teammate mark beds taken on the hospital panel — the ranking updates live,
+   no refresh, visible on the crew's screen mid-decision.
+5. Confirm on the ambulance page → hospital receives the pre-alert with ETA and
+   condition; the dispatcher's screen updates to show what the crew chose, without
+   ever having been asked to choose it themselves.
+6. Close on the two decision points: *"The system recommends twice — which vehicle,
+   which hospital. A human decides both, and it's never the same person under the
+   same time pressure."*
+
+Whoever runs the hospital panel in step 4 should be a **third person on a third
 machine**. Alt-tabbing to change your own data undercuts the whole illusion.
 
 ---
@@ -357,9 +383,11 @@ machine**. Alt-tabbing to change your own data undercuts the whole illusion.
   Then describe the ranking engine accurately as *deterministic, explainable
   decision-support* — and say so plainly. Judges respect a team that knows which parts
   of their system are AI and which are arithmetic; they punish teams who blur it.
-- **"What if the AI is wrong?"** → Two independent safeguards. The triage output is
-  editable before it's used, and the dispatcher can override the final routing. The
-  system never auto-dispatches. Show the override, don't just describe it.
+- **"What if the AI is wrong?"** → Two independent safeguards, run by two different
+  people. The triage output is editable by the crew before they confirm it, and
+  either the vehicle pick or the hospital pick can be overridden by the human making
+  that specific call. The system never auto-dispatches. Show an override, don't just
+  describe it.
 - **"How does this get real hospital data?"** → It needs hospital-side integration and
   buy-in. The capacity panel stands in for an HIS feed. Be straight that this is the
   hard part of the real problem — a team that names its own biggest obstacle reads as
@@ -381,8 +409,8 @@ Decide this now, calmly, not at hour 19 in a panic. Cut in this order:
 3. Mass casualty (#9) → describe it as future work.
 4. Live re-ranking (#5) → a "Refresh" button. **Cut this last** — it's the demo's peak.
 
-**Never cut:** the ranking engine, the "why" breakdown, or the override button. Those
-three *are* the project.
+**Never cut:** the ranking engine, the "why" breakdown, or either override button
+(vehicle pick, hospital pick — now two, on two screens). Those *are* the project.
 
 ---
 

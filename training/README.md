@@ -36,9 +36,10 @@ names, phone numbers, addresses, and IDs out of this file.
 - `severity` is `critical`, `urgent`, or `stable`.
 - `clauses` should mark the Burmese phrase that drove the label, not a cleaned
   translation. This keeps model behavior traceable to what the caller said.
-- `redFlags` should be short clinical evidence that a dispatcher can audit.
-- Use this only for decision support. A trained dispatcher remains responsible
-  for reviewing and correcting every result.
+- `redFlags` should be short clinical evidence that a reviewer can audit.
+- Use this only for decision support. Triage runs on the ambulance crew's own
+  screen, not the dispatcher's — a trained crew member remains responsible for
+  reviewing and correcting every result before it drives a hospital pick.
 
 When the dataset grows beyond the seed file, split it into reviewed
 `train.jsonl`, `validation.jsonl`, and `test.jsonl` files with no duplicate
