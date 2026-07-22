@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Hospital,
   MapPin,
+  Mic2,
   PhoneCall,
   Sparkles,
 } from "lucide-react";
@@ -24,21 +25,31 @@ const flow = [
   {
     icon: PhoneCall,
     title: "Emergency received",
+    category: project.category,
     body: "The 119 call taker dictates or types what the caller reports.",
   },
   {
+    icon: Mic2,
+    title: project.flowCategory.label,
+    category: "Voice intake",
+    body: project.flowCategory.body,
+  },
+  {
     icon: Sparkles,
-    title: "AI triage",
-    body: "Condition, severity and required specialty are extracted — with the findings that drove the call.",
+    title: "AI triage analysis",
+    category: "Clinical decision support",
+    body: "Condition, severity and required specialty are extracted, with the findings that drove the call.",
   },
   {
     icon: Ambulance,
     title: "Ambulance selected",
+    category: "Fleet routing",
     body: "The nearest certified vehicle reporting live GPS is assigned.",
   },
   {
     icon: Hospital,
     title: "Hospital selected",
+    category: "Capacity matching",
     body: "Hospitals that cannot treat this patient are filtered out; the rest are ranked on live capacity and travel time.",
   },
 ];
@@ -55,7 +66,10 @@ export default function HomePage() {
     <>
       <section className="hero-glow border-b border-border">
         <div className="mx-auto flex max-w-7xl flex-col items-start gap-5 px-5 py-14 sm:py-20">
-          <Badge tone="accent">{project.team}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="accent">{project.team}</Badge>
+            <Badge>{project.category}</Badge>
+          </div>
 
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
             {project.name}
@@ -86,15 +100,15 @@ export default function HomePage() {
         <section className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-semibold tracking-tight">
-              One call, four decisions
+              One call, five decisions
             </h2>
             <p className="text-sm text-muted">
-              The dispatcher stays the decision maker at every step — every
+              The dispatcher stays the decision maker at every step - every
               recommendation can be overridden in one click.
             </p>
           </div>
 
-          <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {flow.map((step, index) => (
               <li key={step.title}>
                 <Card className="h-full">
@@ -107,6 +121,7 @@ export default function HomePage() {
                         Step {index + 1}
                       </span>
                     </div>
+                    <Badge className="w-fit">{step.category}</Badge>
                     <CardTitle>{step.title}</CardTitle>
                     <CardDescription>{step.body}</CardDescription>
                   </CardBody>

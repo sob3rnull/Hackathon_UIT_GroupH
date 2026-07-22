@@ -5,11 +5,18 @@
 export const project = {
   name: "MediRoute",
 
+  category: "Health Emergency",
+
+  flowCategory: {
+    label: "Speech-to-text analysis",
+    body: "Voice from the 119 call is transcribed into the patient note, then analyzed into structured triage fields.",
+  },
+
   tagline:
     "Routes ambulances to the hospital that can actually treat the patient — not just the closest one.",
 
   pitch:
-    "Emergency routing today optimizes for distance alone, so ambulances arrive to find no beds, no specialist on duty, or an overloaded ER. MediRoute reads the paramedic's own words, extracts structured triage, and ranks hospitals on live capacity plus travel time — showing its reasoning every step, with a dispatcher override always one click away.",
+    "Emergency routing today optimizes for distance alone, so ambulances arrive to find no beds, no specialist on duty, or an overloaded ER. MediRoute turns speech or typed notes into structured triage, then ranks hospitals on live capacity plus travel time — showing its reasoning every step, with a dispatcher override always one click away.",
 
   team: "Group H · UIT",
 
@@ -59,7 +66,7 @@ export const project = {
   highlights: [
     {
       title: "Hears the call",
-      body: "The 119 dispatcher dictates or types what the caller reports. Claude extracts condition, severity and required specialty, and shows the findings that drove the call.",
+      body: "The 119 dispatcher dictates or types what the caller reports. Speech-to-text feeds the same analysis path as typed notes, then Claude extracts condition, severity and required specialty.",
     },
     {
       title: "Sends the right vehicle",

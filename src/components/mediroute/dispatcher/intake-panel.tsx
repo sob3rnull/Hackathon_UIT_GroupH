@@ -1,6 +1,8 @@
 "use client";
 
 import { Ambulance, Sparkles } from "lucide-react";
+import { project } from "@/config/project";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Textarea } from "@/components/ui/field";
@@ -30,13 +32,17 @@ export function IntakePanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Ambulance className="size-4 text-danger" />
-          119 call intake
-        </CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <Ambulance className="size-4 text-danger" />
+            119 call intake
+          </CardTitle>
+          <Badge>{project.flowCategory.label}</Badge>
+        </div>
         <CardDescription>
-          Dictate or type what the caller reports. Click the map below to set
-          the incident location.
+          Dictate in Burmese or English, or type what the caller reports. The
+          note is analyzed into triage fields before routing. Click the map
+          below to set the incident location.
         </CardDescription>
       </CardHeader>
 

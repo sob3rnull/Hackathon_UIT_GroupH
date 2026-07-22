@@ -20,7 +20,7 @@ hospital store and keyword triage. Add keys to upgrade each piece independently.
 
 | Route | Who | What |
 |---|---|---|
-| `/` | 119 dispatcher | Voice/text intake → AI triage → assign ambulance → rank hospitals → dispatch |
+| `/` | 119 dispatcher | Voice/text intake → speech-to-text analysis → AI triage → assign ambulance → rank hospitals → dispatch |
 | `/fleet` | *(stands in for the IoT units)* | Vehicle status, GPS freshness, certification |
 | `/hospital` | *(stands in for the HIS feed)* | Live bed / ICU / roster / ER capacity |
 
@@ -35,6 +35,7 @@ socket server. **Run at least one panel on a second machine during the demo.**
 119 call
    │
    ├─ dispatcher dictates or types what the caller reports
+   │     ├─ speech-to-text analysis turns dictation into the patient note
    │     └─ Claude extracts { condition, severity, specialty, needsICU, redFlags }
    │
    ├─ ASSIGN AMBULANCE  ── nearest certified, available, GPS-fresh vehicle
@@ -182,11 +183,16 @@ Free-text paramedic note → `{ condition, severity, requiredSpecialty, needsICU
 redFlags, confidence }`. Two paths, identical output shape:
 
 - **Claude** via structured outputs — schema-guaranteed, no JSON parsing.
-- **Keyword matcher** — used when `ANTHROPIC_API_KEY` is missing or the call fails.
+- **Burmese/English keyword matcher** — used when `ANTHROPIC_API_KEY` is missing or the call fails.
 
 The UI always states which one ran. Fallback output is never presented as AI.
 `redFlags` carries the findings that drove the call, so the dispatcher can trace the
 decision back to the note.
+
+Speech input defaults to Burmese (`my-MM`) and can be toggled to English in the
+dispatcher intake card. Seed Burmese medical-clause examples live in
+[`training/burmese-patient-situations.jsonl`](training/burmese-patient-situations.jsonl);
+the schema and labeling notes are in [`training/README.md`](training/README.md).
 
 **2. Ranking** (`src/lib/mediroute/engine.ts`) — pure function, no I/O, no clock.
 

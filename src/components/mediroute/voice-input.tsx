@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Square } from "lucide-react";
+import { Languages, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -47,6 +47,12 @@ interface SpeechRecognitionLike {
   onend: (() => void) | null;
 }
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+type SpeechLanguage = "my-MM" | "en-US";
+
+const speechLanguages: { code: SpeechLanguage; label: string }[] = [
+  { code: "my-MM", label: "Burmese" },
+  { code: "en-US", label: "English" },
+];
 
 function getRecognitionCtor(): SpeechRecognitionCtor | null {
   if (typeof window === "undefined") return null;
@@ -69,6 +75,7 @@ export function VoiceInput({
 }) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
+  const [language, setLanguage] = useState<SpeechLanguage>("my-MM");
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalRef = useRef("");
@@ -92,7 +99,7 @@ export function VoiceInput({
     finalRef.current = "";
 
     const recognition = new Ctor();
-    recognition.lang = "en-US";
+    recognition.lang = language;
     recognition.continuous = true;
     recognition.interimResults = true;
 
@@ -143,31 +150,57 @@ export function VoiceInput({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <button
-        type="button"
-        onClick={listening ? stop : start}
-        disabled={disabled}
-        className={cn(
-          "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
-          listening
-            ? "bg-danger text-white"
-            : "border border-border bg-surface text-foreground hover:bg-surface-muted",
-          "disabled:pointer-events-none disabled:opacity-50",
-        )}
-      >
-        {listening ? (
-          <>
-            <Square className="size-3.5 fill-current" />
-            Stop dictating
-            <span className="ml-1 inline-flex size-2 animate-pulse rounded-full bg-white" />
-          </>
-        ) : (
-          <>
-            <Mic className="size-4" />
-            Dictate
-          </>
-        )}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex h-10 items-center overflow-hidden rounded-lg border border-border bg-surface text-sm">
+          <span className="grid h-full w-9 place-items-center border-r border-border text-muted">
+            <Languages className="size-4" />
+          </span>
+          {speechLanguages.map((option) => (
+            <button
+              key={option.code}
+              type="button"
+              onClick={() => setLanguage(option.code)}
+              disabled={disabled || listening}
+              aria-pressed={language === option.code}
+              className={cn(
+                "h-full px-3 text-xs font-medium transition-colors",
+                language === option.code
+                  ? "bg-accent-soft text-accent"
+                  : "text-muted hover:bg-surface-muted hover:text-foreground",
+                "disabled:pointer-events-none disabled:opacity-50",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={listening ? stop : start}
+          disabled={disabled}
+          className={cn(
+            "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
+            listening
+              ? "bg-danger text-white"
+              : "border border-border bg-surface text-foreground hover:bg-surface-muted",
+            "disabled:pointer-events-none disabled:opacity-50",
+          )}
+        >
+          {listening ? (
+            <>
+              <Square className="size-3.5 fill-current" />
+              Stop dictating
+              <span className="ml-1 inline-flex size-2 animate-pulse rounded-full bg-white" />
+            </>
+          ) : (
+            <>
+              <Mic className="size-4" />
+              Dictate
+            </>
+          )}
+        </button>
+      </div>
 
       {error ? <p className="text-xs text-danger">{error}</p> : null}
       {listening ? (
