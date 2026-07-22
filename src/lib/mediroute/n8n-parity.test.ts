@@ -56,6 +56,7 @@ function hospital(over: Partial<Hospital> & { id: string }): Hospital {
   return {
     name: over.id,
     short_name: over.id,
+    description: "",
     lat: 16.79,
     lng: 96.16,
     specialties: ["cardiology"],
