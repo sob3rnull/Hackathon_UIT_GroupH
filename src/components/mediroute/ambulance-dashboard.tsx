@@ -27,7 +27,7 @@ import { HospitalChoiceList } from "@/components/mediroute/hospital-choice-list"
 import { ReasonList } from "@/components/mediroute/reasons";
 import { AmbulanceRouteMap } from "@/components/mediroute/ambulance-route-map";
 import { TriageSummary, type TriageSource } from "@/components/mediroute/triage-summary";
-import { VoicePlaceholder } from "@/components/mediroute/voice-placeholder";
+import { VoiceInput } from "@/components/mediroute/voice-input";
 import { confirmMission, getHospitalPlan, runTriage } from "@/lib/mediroute/backend";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
@@ -458,7 +458,13 @@ export function AmbulanceDashboard() {
             </CardDescription>
           </CardHeader>
           <CardBody className="flex flex-col gap-4">
-            <VoicePlaceholder />
+            <VoiceInput
+              disabled={triaging}
+              onListeningChange={(listening) => {
+                if (listening) setCrewNote("");
+              }}
+              onTranscript={setCrewNote}
+            />
 
             <Field label="Description" htmlFor="crew-note">
               <Textarea

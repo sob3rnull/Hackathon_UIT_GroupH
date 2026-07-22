@@ -110,7 +110,6 @@ export function VoiceInput({
         // API unreachable — same as no key.
       }
       if (cancelled) return;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPath(server ? "server" : getRecognitionCtor() ? "browser" : "none");
     })();
     return () => {
