@@ -102,7 +102,7 @@ function memory(): Hospital[] {
 /* ── Hospitals ─────────────────────────────────────────────────────────── */
 
 export async function listHospitals(): Promise<Hospital[]> {
-  const db = createDataClient();
+  const db = await createDataClient();
   if (!db) return [...memory()];
 
   const { data, error } = await db
@@ -125,7 +125,7 @@ export async function updateHospital(
   id: string,
   patch: CapacityPatch,
 ): Promise<Hospital> {
-  const db = createDataClient();
+  const db = await createDataClient();
 
   if (!db) {
     const rows = memory();
@@ -188,7 +188,7 @@ function ambulanceMemory(): Ambulance[] {
 }
 
 export async function listAmbulances(): Promise<Ambulance[]> {
-  const db = createDataClient();
+  const db = await createDataClient();
   if (!db) return [...ambulanceMemory()];
 
   const { data, error } = await db
@@ -208,7 +208,7 @@ export async function updateAmbulance(
   id: string,
   patch: AmbulancePatch,
 ): Promise<Ambulance> {
-  const db = createDataClient();
+  const db = await createDataClient();
 
   if (!db) {
     const rows = ambulanceMemory();
@@ -268,7 +268,7 @@ function dispatchMemory(): DispatchRow[] {
 }
 
 export async function createDispatch(input: DispatchInput): Promise<DispatchRow> {
-  const db = createDataClient();
+  const db = await createDataClient();
 
   if (!db) {
     const row: DispatchRow = {
@@ -314,7 +314,7 @@ export async function updateDispatch(
   id: string,
   patch: DispatchConfirmPatch,
 ): Promise<DispatchRow> {
-  const db = createDataClient();
+  const db = await createDataClient();
 
   if (!db) {
     const rows = dispatchMemory();
@@ -363,7 +363,7 @@ export interface DonationInput {
 }
 
 export async function createDonation(input: DonationInput): Promise<Donation> {
-  const db = createDataClient();
+  const db = await createDataClient();
 
   if (!db) {
     const row: Donation = {
@@ -386,7 +386,7 @@ export async function createDonation(input: DonationInput): Promise<Donation> {
 }
 
 export async function listDonations(): Promise<Donation[]> {
-  const db = createDataClient();
+  const db = await createDataClient();
   if (!db) return [...donationMemory()];
 
   const { data, error } = await db
@@ -402,7 +402,7 @@ export async function listDonations(): Promise<Donation[]> {
 export async function donationTotals(): Promise<
   Record<string, { total: number; count: number }>
 > {
-  const db = createDataClient();
+  const db = await createDataClient();
 
   // Memory mode reuses the full list; Supabase fetches the two columns it
   // needs without the recency limit so totals stay correct as rows grow.
@@ -426,7 +426,7 @@ export async function donationTotals(): Promise<
 }
 
 export async function listDispatches(): Promise<DispatchRow[]> {
-  const db = createDataClient();
+  const db = await createDataClient();
   if (!db) return [...dispatchMemory()];
 
   const { data, error } = await db
