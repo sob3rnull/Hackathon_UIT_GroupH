@@ -61,6 +61,50 @@ export interface LatLng {
   lng: number;
 }
 
+/* ── Ambulance fleet ───────────────────────────────────────────────────── */
+
+export const ambulanceStatuses = [
+  "available",
+  "dispatched",
+  "on_scene",
+  "transporting",
+  "offline",
+] as const;
+export type AmbulanceStatus = (typeof ambulanceStatuses)[number];
+
+export interface Ambulance {
+  id: string;
+  callsign: string;
+  operator: string;
+  /** IoT unit fitted to the vehicle. Null means no device installed. */
+  device_id: string | null;
+  /** Granted only once the device is installed and reporting. */
+  certified: boolean;
+  lat: number | null;
+  lng: number | null;
+  gps_fix_at: string | null;
+  status: AmbulanceStatus;
+  crew_level: "basic" | "advanced";
+  updated_at: string;
+}
+
+export interface AmbulanceCandidate {
+  ambulance: Ambulance;
+  distanceKm: number;
+  /** Ambulance → incident. The response leg. */
+  responseMinutes: number;
+}
+
+export interface AmbulanceRejection {
+  ambulance: Ambulance;
+  reason: string;
+}
+
+export interface AmbulanceSelection {
+  candidates: AmbulanceCandidate[];
+  rejected: AmbulanceRejection[];
+}
+
 /** A hospital that survived eligibility, with its score broken down. */
 export interface Ranked {
   hospital: Hospital;
@@ -94,6 +138,11 @@ export interface Recommendation {
    */
   relaxed: boolean;
   triage: Triage;
+  /**
+   * The incident location. Hospital ETAs are the transport leg from here; the
+   * response leg (ambulance → incident) lives on the ambulance candidate.
+   * Total time to definitive care is response + transport, not either alone.
+   */
   origin: LatLng;
 }
 

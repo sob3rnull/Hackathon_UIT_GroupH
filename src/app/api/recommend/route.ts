@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { recommend } from "@/lib/mediroute/engine";
-import { DEFAULT_ORIGIN, listHospitals } from "@/lib/mediroute/store";
+import { resolveFeed } from "@/lib/mediroute/feeds/hospital-feed";
+import { DEFAULT_ORIGIN } from "@/lib/mediroute/store";
 import { triageSchema } from "@/lib/mediroute/types";
 
 const bodySchema = z.object({
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const hospitals = await listHospitals();
+    // Availability comes through the feed seam, so pointing a hospital at a
+    // real HIS later changes nothing here. See feeds/hospital-feed.ts.
+    const hospitals = await resolveFeed().getAvailability();
     const origin = parsed.data.origin ?? DEFAULT_ORIGIN;
     return NextResponse.json({
       ok: true,

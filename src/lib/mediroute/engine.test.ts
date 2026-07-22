@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { recommend, WEIGHTS } from "./engine";
+import { recommend, selectAmbulance, STALE_GPS_MINUTES, WEIGHTS } from "./engine";
 import { haversineKm, etaMinutes } from "./geo";
-import type { Hospital, LatLng, Triage } from "./types";
+import type { Ambulance, Hospital, LatLng, Triage } from "./types";
 
 /**
  * These exist because the original spec's ranking formula would have sorted
@@ -193,6 +193,137 @@ describe("degenerate inputs", () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe("ambulance selection", () => {
+  const NOW = new Date("2026-07-22T10:00:00Z");
+  const fresh = new Date(NOW.getTime() - 60_000).toISOString(); // 1 min old
+
+  function amb(over: Partial<Ambulance> & { id: string }): Ambulance {
+    return {
+      callsign: over.id,
+      operator: "Test EMS",
+      device_id: "IOT-0000",
+      certified: true,
+      lat: ORIGIN.lat,
+      lng: ORIGIN.lng,
+      gps_fix_at: fresh,
+      status: "available",
+      crew_level: "basic",
+      updated_at: NOW.toISOString(),
+      ...over,
+    };
+  }
+
+  it("orders dispatchable vehicles nearest first", () => {
+    const near = amb({ id: "near", lat: 16.78, lng: 96.16 });
+    const far = amb({ id: "far", lat: 16.87, lng: 96.19 });
+
+    const { candidates } = selectAmbulance([far, near], ORIGIN, NOW);
+
+    expect(candidates.map((c) => c.ambulance.id)).toEqual(["near", "far"]);
+    expect(candidates[0].responseMinutes).toBeLessThan(candidates[1].responseMinutes);
+  });
+
+  it("rejects an uncertified vehicle even when it is the closest", () => {
+    const closestUncertified = amb({
+      id: "uncertified",
+      certified: false,
+      device_id: null,
+      lat: ORIGIN.lat,
+      lng: ORIGIN.lng,
+    });
+    const fartherCertified = amb({ id: "certified", lat: 16.8, lng: 96.17 });
+
+    const { candidates, rejected } = selectAmbulance(
+      [closestUncertified, fartherCertified],
+      ORIGIN,
+      NOW,
+    );
+
+    // The certification gate must beat proximity — this is the whole point of
+    // requiring the IoT unit before a vehicle can be dispatched.
+    expect(candidates.map((c) => c.ambulance.id)).toEqual(["certified"]);
+    expect(rejected[0].reason).toMatch(/no iot unit/i);
+  });
+
+  it("rejects vehicles that are not available", () => {
+    const busy = amb({ id: "busy", status: "transporting" });
+    const { candidates, rejected } = selectAmbulance([busy], ORIGIN, NOW);
+
+    expect(candidates).toHaveLength(0);
+    expect(rejected[0].reason).toMatch(/unavailable \(transporting\)/i);
+  });
+
+  it("rejects a vehicle whose GPS fix is stale", () => {
+    const stale = amb({
+      id: "stale",
+      gps_fix_at: new Date(NOW.getTime() - (STALE_GPS_MINUTES + 5) * 60_000).toISOString(),
+    });
+    const { candidates, rejected } = selectAmbulance([stale], ORIGIN, NOW);
+
+    expect(candidates).toHaveLength(0);
+    expect(rejected[0].reason).toMatch(/gps fix \d+ min old/i);
+  });
+
+  it("accepts a fix that is fresh enough", () => {
+    const ok = amb({
+      id: "ok",
+      gps_fix_at: new Date(NOW.getTime() - (STALE_GPS_MINUTES - 1) * 60_000).toISOString(),
+    });
+    expect(selectAmbulance([ok], ORIGIN, NOW).candidates).toHaveLength(1);
+  });
+
+  it("rejects a vehicle with no position at all", () => {
+    const noFix = amb({ id: "nofix", lat: null, lng: null });
+    const { candidates, rejected } = selectAmbulance([noFix], ORIGIN, NOW);
+
+    expect(candidates).toHaveLength(0);
+    expect(rejected[0].reason).toMatch(/no gps position/i);
+  });
+
+  it("does not silently prefer an advanced crew over a nearer basic one", () => {
+    const nearBasic = amb({ id: "nearBasic", lat: 16.78, lng: 96.16, crew_level: "basic" });
+    const farAdvanced = amb({
+      id: "farAdvanced", lat: 16.87, lng: 96.19, crew_level: "advanced",
+    });
+
+    const { candidates } = selectAmbulance([farAdvanced, nearBasic], ORIGIN, NOW);
+    // Crew level is shown to the dispatcher, never scored — overriding on
+    // clinical grounds must stay a visible human decision.
+    expect(candidates[0].ambulance.id).toBe("nearBasic");
+  });
+
+  it("returns nothing dispatchable rather than throwing when the fleet is grounded", () => {
+    const grounded = [
+      amb({ id: "a", certified: false, device_id: null }),
+      amb({ id: "b", status: "offline" }),
+    ];
+    const { candidates, rejected } = selectAmbulance(grounded, ORIGIN, NOW);
+
+    expect(candidates).toHaveLength(0);
+    expect(rejected).toHaveLength(2);
+  });
+
+  it("matches the seeded demo fleet: YGN-01 wins, closest vehicle is excluded", () => {
+    const fleet = [
+      amb({ id: "YGN-01", lat: 16.7801, lng: 96.1571 }),
+      amb({ id: "YGN-04", lat: 16.7712, lng: 96.1683 }),
+      amb({ id: "YGN-02", lat: 16.7775, lng: 96.1601, status: "transporting" }),
+      amb({ id: "YGN-09", lat: 16.7769, lng: 96.1594, certified: false, device_id: null }),
+      amb({ id: "YGN-11", lat: 16.865, lng: 96.172 }),
+    ];
+
+    const { candidates, rejected } = selectAmbulance(fleet, ORIGIN, NOW);
+
+    expect(candidates[0].ambulance.id).toBe("YGN-01");
+
+    // YGN-09 sits essentially on top of the incident but has no IoT unit, and
+    // YGN-02 is metres away but already carrying a patient.
+    const rejectedIds = rejected.map((r) => r.ambulance.id);
+    expect(rejectedIds).toContain("YGN-09");
+    expect(rejectedIds).toContain("YGN-02");
   });
 });
 

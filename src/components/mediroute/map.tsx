@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Hospital, LatLng } from "@/lib/mediroute/types";
+import type { Ambulance, Hospital, LatLng } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,8 +21,13 @@ const PAD = 44;
 
 interface MapProps {
   hospitals: Hospital[];
+  /** The incident location — where the patient is. */
   origin: LatLng;
-  /** Highest-ranked hospital — drawn with a route line from the ambulance. */
+  /** Vehicles with a GPS fix, drawn as small markers. */
+  ambulances?: Ambulance[];
+  /** The assigned vehicle — drawn with a response leg to the incident. */
+  assignedAmbulanceId?: string | null;
+  /** Highest-ranked hospital — drawn with a transport leg from the incident. */
   recommendedId?: string | null;
   /** What the dispatcher actually picked, if they overrode. */
   selectedId?: string | null;
@@ -34,14 +39,21 @@ interface MapProps {
 export function IncidentMap({
   hospitals,
   origin,
+  ambulances = [],
+  assignedAmbulanceId,
   recommendedId,
   selectedId,
   excludedIds,
   onPickOrigin,
 }: MapProps) {
+  const located = ambulances.filter(
+    (a): a is Ambulance & { lat: number; lng: number } =>
+      a.lat !== null && a.lng !== null,
+  );
+
   const project = useMemo(() => {
-    const lats = [...hospitals.map((h) => h.lat), origin.lat];
-    const lngs = [...hospitals.map((h) => h.lng), origin.lng];
+    const lats = [...hospitals.map((h) => h.lat), ...located.map((a) => a.lat), origin.lat];
+    const lngs = [...hospitals.map((h) => h.lng), ...located.map((a) => a.lng), origin.lng];
 
     // Guard against a degenerate span when only one point exists.
     const minLat = Math.min(...lats) - 0.005;
@@ -63,11 +75,16 @@ export function IncidentMap({
         lat: maxLat - ((y - PAD) / (H - PAD * 2)) * spanLat,
       }),
     };
-  }, [hospitals, origin]);
+    // `located` is derived from `ambulances` on each render, so depend on the
+    // prop rather than the derived array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hospitals, ambulances, origin]);
 
   const originXY = project.toXY(origin);
   const target = hospitals.find((h) => h.id === (selectedId ?? recommendedId));
   const targetXY = target ? project.toXY(target) : null;
+  const assigned = located.find((a) => a.id === assignedAmbulanceId);
+  const assignedXY = assigned ? project.toXY(assigned) : null;
 
   function handleClick(event: React.MouseEvent<SVGSVGElement>) {
     if (!onPickOrigin) return;
@@ -101,7 +118,20 @@ export function IncidentMap({
       </defs>
       <rect width={W} height={H} fill="url(#grid)" />
 
-      {/* Route line from the ambulance to the chosen hospital. */}
+      {/* Response leg: assigned ambulance → incident. */}
+      {assignedXY ? (
+        <line
+          x1={assignedXY.x}
+          y1={assignedXY.y}
+          x2={originXY.x}
+          y2={originXY.y}
+          stroke="var(--warning)"
+          strokeWidth="2.5"
+          strokeDasharray="3 4"
+        />
+      ) : null}
+
+      {/* Transport leg: incident → chosen hospital. */}
       {targetXY ? (
         <line
           x1={originXY.x}
@@ -165,7 +195,45 @@ export function IncidentMap({
         );
       })}
 
-      {/* Ambulance / incident marker. */}
+      {/* Fleet. Uncertified or unavailable vehicles are drawn hollow. */}
+      {located.map((ambulance) => {
+        const { x, y } = project.toXY(ambulance);
+        const isAssigned = ambulance.id === assignedAmbulanceId;
+        const dispatchable = ambulance.certified && ambulance.status === "available";
+
+        return (
+          <g key={ambulance.id} opacity={dispatchable || isAssigned ? 1 : 0.4}>
+            <rect
+              x={x - 5}
+              y={y - 5}
+              width="10"
+              height="10"
+              rx="2"
+              fill={
+                isAssigned
+                  ? "var(--warning)"
+                  : dispatchable
+                    ? "var(--surface)"
+                    : "var(--muted)"
+              }
+              stroke={isAssigned ? "var(--warning)" : "var(--muted)"}
+              strokeWidth="2"
+            />
+            <text
+              x={x}
+              y={y + 18}
+              textAnchor="middle"
+              fontSize="9"
+              fontWeight={isAssigned ? 700 : 400}
+              fill={isAssigned ? "var(--warning)" : "var(--muted)"}
+            >
+              {ambulance.callsign}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Incident marker — where the patient is. */}
       <g>
         <circle cx={originXY.x} cy={originXY.y} r="13" fill="var(--danger)" opacity="0.2" />
         <circle
@@ -184,7 +252,7 @@ export function IncidentMap({
           fontWeight="700"
           fill="var(--danger)"
         >
-          Ambulance
+          Incident
         </text>
       </g>
     </svg>

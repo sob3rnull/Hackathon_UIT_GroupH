@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createDataClient } from "@/lib/supabase/server";
-import type { Hospital } from "./types";
+import type { Ambulance, AmbulanceStatus, Hospital } from "./types";
 
 /**
  * The only module that touches storage for MediRoute.
@@ -126,17 +126,108 @@ export async function updateHospital(
   return data as Hospital;
 }
 
+/* ── Ambulance fleet ───────────────────────────────────────────────────── */
+
+const AMBULANCE_COLUMNS =
+  "id, callsign, operator, device_id, certified, lat, lng, gps_fix_at, status, crew_level, updated_at";
+
+const ga = globalThis as unknown as { __ambulances?: Ambulance[] };
+
+function seedAmbulances(): Ambulance[] {
+  const now = new Date().toISOString();
+  const stale = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const make = (
+    id: string,
+    callsign: string,
+    operator: string,
+    device_id: string | null,
+    certified: boolean,
+    lat: number | null,
+    lng: number | null,
+    gps_fix_at: string | null,
+    status: AmbulanceStatus,
+    crew_level: "basic" | "advanced",
+  ): Ambulance => ({
+    id, callsign, operator, device_id, certified, lat, lng,
+    gps_fix_at, status, crew_level, updated_at: now,
+  });
+
+  return [
+    make("amb-1", "YGN-01", "Yangon City EMS", "IOT-8841", true, 16.7801, 96.1571, now, "available", "advanced"),
+    make("amb-2", "YGN-04", "Yangon City EMS", "IOT-8844", true, 16.7712, 96.1683, now, "available", "basic"),
+    make("amb-3", "YGN-02", "Yangon City EMS", "IOT-8842", true, 16.7775, 96.1601, now, "transporting", "advanced"),
+    make("amb-4", "YGN-09", "Private operator", null, false, 16.7769, 96.1594, null, "available", "basic"),
+    make("amb-5", "YGN-06", "Yangon City EMS", "IOT-8846", true, 16.81, 96.15, stale, "offline", "basic"),
+    make("amb-6", "YGN-11", "North District EMS", "IOT-8851", true, 16.865, 96.172, now, "available", "advanced"),
+  ];
+}
+
+function ambulanceMemory(): Ambulance[] {
+  ga.__ambulances ??= seedAmbulances();
+  return ga.__ambulances;
+}
+
+export async function listAmbulances(): Promise<Ambulance[]> {
+  const db = createDataClient();
+  if (!db) return [...ambulanceMemory()];
+
+  const { data, error } = await db
+    .from("ambulances")
+    .select(AMBULANCE_COLUMNS)
+    .order("callsign");
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Ambulance[];
+}
+
+export type AmbulancePatch = Partial<
+  Pick<Ambulance, "status" | "lat" | "lng" | "certified"> & { gps_fix_at: string }
+>;
+
+export async function updateAmbulance(
+  id: string,
+  patch: AmbulancePatch,
+): Promise<Ambulance> {
+  const db = createDataClient();
+
+  if (!db) {
+    const rows = ambulanceMemory();
+    const index = rows.findIndex((a) => a.id === id);
+    if (index === -1) throw new Error("Ambulance not found");
+    rows[index] = { ...rows[index], ...patch, updated_at: new Date().toISOString() };
+    return rows[index];
+  }
+
+  const { data, error } = await db
+    .from("ambulances")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select(AMBULANCE_COLUMNS)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Ambulance;
+}
+
 /* ── Dispatches ────────────────────────────────────────────────────────── */
 
 export interface DispatchInput {
   hospital_id: string;
   recommended_hospital_id: string | null;
+  ambulance_id: string | null;
   patient_note: string;
   condition: string;
   severity: string;
   required_specialty: string;
   needs_icu: boolean;
+  /** Transport leg: incident → hospital. */
   eta_minutes: number;
+  /** Response leg: ambulance → incident. */
+  response_eta_minutes: number;
+  incident_lat: number | null;
+  incident_lng: number | null;
+  /** How the paramedic note was captured — "text" or "voice". */
+  input_mode: string;
   was_override: boolean;
 }
 

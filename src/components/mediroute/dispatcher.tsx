@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
-  Ambulance,
+  Ambulance as AmbulanceIcon,
   Ban,
   Check,
   Radio,
+  ShieldCheck,
   Sparkles,
   Stethoscope,
 } from "lucide-react";
@@ -16,11 +17,14 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Field, Select, Textarea } from "@/components/ui/field";
 import { ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { IncidentMap } from "@/components/mediroute/map";
+import { VoiceInput } from "@/components/mediroute/voice-input";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
+import { useFleet } from "@/lib/mediroute/use-fleet";
 import {
   conditions,
   severities,
   specialtyFor,
+  type AmbulanceSelection,
   type ApiResult,
   type Condition,
   type LatLng,
@@ -30,7 +34,7 @@ import {
 } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_ORIGIN: LatLng = { lat: 16.7769, lng: 96.1592 };
+const DEFAULT_INCIDENT: LatLng = { lat: 16.7769, lng: 96.1592 };
 
 const EXAMPLE =
   "55M, crushing central chest pain radiating to left arm, diaphoretic, BP 90/60, GCS 14";
@@ -49,20 +53,31 @@ const severityTone: Record<Severity, "danger" | "warning" | "success"> = {
 
 export function Dispatcher() {
   const { hospitals, loading, error, live, revision } = useHospitals();
+  const { ambulances, revision: fleetRevision } = useFleet();
+
+  const [incident, setIncident] = useState<LatLng>(DEFAULT_INCIDENT);
 
   const [note, setNote] = useState(EXAMPLE);
+  const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const [triage, setTriage] = useState<Triage | null>(null);
   const [source, setSource] = useState<"claude" | "keyword" | "manual" | null>(null);
   const [sourceNote, setSourceNote] = useState<string | null>(null);
   const [triaging, setTriaging] = useState(false);
 
-  const [origin, setOrigin] = useState<LatLng>(DEFAULT_ORIGIN);
+  const [fleetPick, setFleetPick] = useState<AmbulanceSelection | null>(null);
+  const [assignedId, setAssignedId] = useState<string | null>(null);
+
   const [rec, setRec] = useState<Recommendation | null>(null);
   const [ranking, setRanking] = useState(false);
   const [staleNotice, setStaleNotice] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dispatched, setDispatched] = useState<{ name: string; eta: number } | null>(null);
+  const [dispatched, setDispatched] = useState<{
+    hospital: string;
+    callsign: string | null;
+    response: number;
+    transport: number;
+  } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
 
@@ -73,46 +88,68 @@ export function Dispatcher() {
       .catch(() => setAiAvailable(false));
   }, []);
 
-  const rank = useCallback(
-    async (t: Triage, at: LatLng, silent = false) => {
-      if (!silent) setRanking(true);
-      setActionError(null);
-      try {
-        const response = await fetch("/api/recommend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triage: t, origin: at }),
-        });
-        const result: ApiResult<Recommendation> = await response.json();
-        if (!result.ok) throw new Error(result.error);
-        setRec(result.data);
-        setSelectedId((current) =>
-          current && result.data.ranked.some((r) => r.hospital.id === current)
-            ? current
-            : (result.data.ranked[0]?.hospital.id ?? null),
-        );
-      } catch (cause) {
-        setActionError(cause instanceof Error ? cause.message : "Ranking failed");
-      } finally {
-        setRanking(false);
-      }
-    },
-    [],
-  );
+  /** Step 1 of the 119 flow: which vehicle goes to the patient. */
+  const pickFleet = useCallback(async (at: LatLng) => {
+    try {
+      const response = await fetch("/api/ambulances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ incident: at }),
+      });
+      const result: ApiResult<AmbulanceSelection> = await response.json();
+      if (!result.ok) throw new Error(result.error);
+      setFleetPick(result.data);
+      setAssignedId((current) =>
+        current && result.data.candidates.some((c) => c.ambulance.id === current)
+          ? current
+          : (result.data.candidates[0]?.ambulance.id ?? null),
+      );
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "Fleet lookup failed");
+    }
+  }, []);
 
-  // Live re-rank: capacity changed somewhere else, so redo the ranking and
-  // flag it. This is the demo's peak moment — a bed freed on the hospital
-  // panel reorders this list with no refresh.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void pickFleet(incident);
+  }, [incident, fleetRevision, pickFleet]);
+
+  /** Step 2: which hospital the patient goes to. */
+  const rank = useCallback(async (t: Triage, at: LatLng, silent = false) => {
+    if (!silent) setRanking(true);
+    setActionError(null);
+    try {
+      const response = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triage: t, origin: at }),
+      });
+      const result: ApiResult<Recommendation> = await response.json();
+      if (!result.ok) throw new Error(result.error);
+      setRec(result.data);
+      setSelectedId((current) =>
+        current && result.data.ranked.some((r) => r.hospital.id === current)
+          ? current
+          : (result.data.ranked[0]?.hospital.id ?? null),
+      );
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "Ranking failed");
+    } finally {
+      setRanking(false);
+    }
+  }, []);
+
+  // Live re-rank when hospital capacity changes elsewhere.
   useEffect(() => {
     if (revision === 0 || !triage) return;
     // Reacting to an external realtime event (a capacity change on another
     // machine) — the documented escape hatch for this rule. Once per event.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStaleNotice(true);
-    void rank(triage, origin, true);
+    void rank(triage, incident, true);
     const timer = setTimeout(() => setStaleNotice(false), 4000);
     return () => clearTimeout(timer);
-  }, [revision, triage, origin, rank]);
+  }, [revision, triage, incident, rank]);
 
   async function handleTriage() {
     setTriaging(true);
@@ -130,7 +167,7 @@ export function Dispatcher() {
       setTriage(result.data.triage);
       setSource(result.data.source);
       setSourceNote(result.data.note ?? null);
-      await rank(result.data.triage, origin);
+      await rank(result.data.triage, incident);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Triage failed");
     } finally {
@@ -138,7 +175,6 @@ export function Dispatcher() {
     }
   }
 
-  /** Dispatcher edits the triage by hand — the override that keeps a human in the loop. */
   function patchTriage(patch: Partial<Triage>) {
     if (!triage) return;
     const next: Triage = { ...triage, ...patch };
@@ -147,11 +183,11 @@ export function Dispatcher() {
     setSource("manual");
     setSourceNote(null);
     setDispatched(null);
-    void rank(next, origin);
+    void rank(next, incident);
   }
 
-  function moveAmbulance(point: LatLng) {
-    setOrigin(point);
+  function moveIncident(point: LatLng) {
+    setIncident(point);
     setDispatched(null);
     if (triage) void rank(triage, point);
   }
@@ -161,6 +197,8 @@ export function Dispatcher() {
     const chosen = rec.ranked.find((r) => r.hospital.id === selectedId);
     if (!chosen) return;
 
+    const assigned = fleetPick?.candidates.find((c) => c.ambulance.id === assignedId);
+
     setActionError(null);
     try {
       const response = await fetch("/api/dispatch", {
@@ -169,19 +207,27 @@ export function Dispatcher() {
         body: JSON.stringify({
           hospital_id: chosen.hospital.id,
           recommended_hospital_id: rec.ranked[0]?.hospital.id ?? null,
+          ambulance_id: assigned?.ambulance.id ?? null,
           patient_note: note,
           condition: rec.triage.condition,
           severity: rec.triage.severity,
           required_specialty: rec.triage.requiredSpecialty,
           needs_icu: rec.triage.needsICU,
           eta_minutes: Math.round(chosen.etaMinutes),
+          response_eta_minutes: Math.round(assigned?.responseMinutes ?? 0),
+          incident_lat: incident.lat,
+          incident_lng: incident.lng,
+          input_mode: inputMode,
         }),
       });
       const result = await response.json();
       if (!result.ok) throw new Error(result.error);
+
       setDispatched({
-        name: chosen.hospital.name,
-        eta: Math.round(chosen.etaMinutes),
+        hospital: chosen.hospital.name,
+        callsign: assigned?.ambulance.callsign ?? null,
+        response: Math.round(assigned?.responseMinutes ?? 0),
+        transport: Math.round(chosen.etaMinutes),
       });
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "Dispatch failed");
@@ -191,27 +237,43 @@ export function Dispatcher() {
   const excludedIds = new Set(rec?.excluded.map((e) => e.hospital.id) ?? []);
   const topId = rec?.ranked[0]?.hospital.id ?? null;
   const isOverride = Boolean(selectedId && topId && selectedId !== topId);
+  const assigned = fleetPick?.candidates.find((c) => c.ambulance.id === assignedId);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[24rem_1fr] lg:items-start">
-      {/* ── Left column: intake ─────────────────────────────────────────── */}
+      {/* ── Left: intake ─────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 lg:sticky lg:top-20">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Ambulance className="size-4 text-danger" />
-              Patient intake
+              <AmbulanceIcon className="size-4 text-danger" />
+              119 call intake
             </CardTitle>
             <CardDescription>
-              Type what the paramedic says. No dropdowns mid-emergency.
+              Dictate or type what the caller reports. Click the map to set the
+              incident location.
             </CardDescription>
           </CardHeader>
           <CardBody className="flex flex-col gap-4">
-            <Field label="Paramedic note" htmlFor="note">
+            <VoiceInput
+              disabled={triaging}
+              onListeningChange={(listening) => {
+                if (listening) {
+                  setNote("");
+                  setInputMode("voice");
+                }
+              }}
+              onTranscript={setNote}
+            />
+
+            <Field label="Patient description" htmlFor="note">
               <Textarea
                 id="note"
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={(e) => {
+                  setNote(e.target.value);
+                  setInputMode("text");
+                }}
                 rows={4}
                 placeholder="e.g. 30F, motorcycle collision, open tibia fracture, alert"
               />
@@ -225,7 +287,6 @@ export function Dispatcher() {
             {aiAvailable === false ? (
               <p className="text-xs text-warning">
                 No <code>ANTHROPIC_API_KEY</code> set — using the keyword fallback.
-                Add the key to <code>.env.local</code> for real AI triage.
               </p>
             ) : null}
           </CardBody>
@@ -247,7 +308,7 @@ export function Dispatcher() {
                   <span>Set manually by dispatcher</span>
                 ) : (
                   <span className="text-warning">
-                    Keyword fallback — not AI · {Math.round(triage.confidence * 100)}% confidence
+                    Keyword fallback — not AI · {Math.round(triage.confidence * 100)}%
                   </span>
                 )}
               </CardDescription>
@@ -259,7 +320,6 @@ export function Dispatcher() {
                 </p>
               ) : null}
 
-              {/* Always-visible manual override. The model proposes; the human disposes. */}
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Condition" htmlFor="condition">
                   <Select
@@ -304,7 +364,7 @@ export function Dispatcher() {
               {triage.redFlags.length ? (
                 <div className="flex flex-col gap-1.5">
                   <p className="text-xs font-medium text-muted">
-                    Why — traceable to the note
+                    Why — traceable to the description
                   </p>
                   <ul className="flex flex-col gap-1">
                     {triage.redFlags.map((flag, i) => (
@@ -321,13 +381,15 @@ export function Dispatcher() {
         ) : null}
       </div>
 
-      {/* ── Right column: map + ranking ─────────────────────────────────── */}
+      {/* ── Right: map, fleet, hospitals ─────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div className="flex flex-col gap-1">
               <CardTitle>Live map</CardTitle>
-              <CardDescription>Click anywhere to move the ambulance.</CardDescription>
+              <CardDescription>
+                Click to move the incident. Squares are ambulances reporting GPS.
+              </CardDescription>
             </div>
             <Badge tone={live ? "success" : "neutral"}>
               <Radio className="size-3" />
@@ -340,11 +402,13 @@ export function Dispatcher() {
             ) : (
               <IncidentMap
                 hospitals={hospitals}
-                origin={origin}
+                origin={incident}
+                ambulances={ambulances}
+                assignedAmbulanceId={assignedId}
                 recommendedId={topId}
                 selectedId={selectedId}
                 excludedIds={excludedIds}
-                onPickOrigin={moveAmbulance}
+                onPickOrigin={moveIncident}
               />
             )}
           </CardBody>
@@ -361,11 +425,84 @@ export function Dispatcher() {
         ) : null}
 
         {dispatched ? (
-          <div className="flex items-center gap-2 rounded-card border border-success/40 bg-success/12 px-4 py-3 text-sm">
+          <div className="flex items-start gap-2 rounded-card border border-success/40 bg-success/12 px-4 py-3 text-sm">
             <Check className="size-4 shrink-0 text-success" />
-            Dispatched to <strong>{dispatched.name}</strong> · pre-alert sent · ETA{" "}
-            {dispatched.eta} min
+            <span>
+              {dispatched.callsign ? <strong>{dispatched.callsign}</strong> : "Ambulance"}{" "}
+              dispatched to <strong>{dispatched.hospital}</strong> · pre-alert sent ·{" "}
+              {dispatched.response} min to scene, {dispatched.transport} min to hospital
+              (total {dispatched.response + dispatched.transport} min to definitive care)
+            </span>
           </div>
+        ) : null}
+
+        {/* ── Step 1: assign an ambulance ───────────────────────────────── */}
+        {fleetPick ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AmbulanceIcon className="size-4" />
+                Nearest available ambulance
+              </CardTitle>
+              <CardDescription>
+                {fleetPick.candidates.length} dispatchable · {fleetPick.rejected.length}{" "}
+                unavailable. Only certified vehicles with a fresh GPS fix are listed.
+              </CardDescription>
+            </CardHeader>
+            <CardBody className="flex flex-col gap-2">
+              {fleetPick.candidates.length === 0 ? (
+                <p className="text-sm text-danger">
+                  No dispatchable ambulance. Escalate manually.
+                </p>
+              ) : (
+                fleetPick.candidates.map((candidate, index) => {
+                  const isAssigned = candidate.ambulance.id === assignedId;
+                  return (
+                    <button
+                      key={candidate.ambulance.id}
+                      onClick={() => {
+                        setAssignedId(candidate.ambulance.id);
+                        setDispatched(null);
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-card border p-3 text-left transition-colors",
+                        isAssigned
+                          ? "border-warning bg-warning/12"
+                          : "border-border bg-surface-muted/50 hover:border-warning/40",
+                      )}
+                    >
+                      <ShieldCheck className="size-4 shrink-0 text-success" />
+                      <span className="font-semibold">{candidate.ambulance.callsign}</span>
+                      <Badge tone="neutral">{candidate.ambulance.crew_level}</Badge>
+                      <span className="text-sm text-muted">
+                        {candidate.ambulance.operator}
+                      </span>
+                      {index === 0 ? <Badge tone="warning">Nearest</Badge> : null}
+                      <span className="ml-auto font-mono text-sm">
+                        {Math.round(candidate.responseMinutes)} min
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+
+              {fleetPick.rejected.length ? (
+                <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-3">
+                  <p className="text-xs font-medium text-muted">Not dispatchable</p>
+                  {fleetPick.rejected.map((entry) => (
+                    <div
+                      key={entry.ambulance.id}
+                      className="flex items-center gap-2 text-sm text-muted"
+                    >
+                      <Ban className="size-3.5 shrink-0" />
+                      <span className="font-medium">{entry.ambulance.callsign}</span>
+                      <span className="ml-auto text-xs text-danger">{entry.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </CardBody>
+          </Card>
         ) : null}
 
         {rec?.relaxed ? (
@@ -378,13 +515,15 @@ export function Dispatcher() {
           </div>
         ) : null}
 
+        {/* ── Step 2: choose the hospital ───────────────────────────────── */}
         {rec ? (
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <div className="flex flex-col gap-1">
-                <CardTitle>Recommendation</CardTitle>
+                <CardTitle>Destination hospital</CardTitle>
                 <CardDescription>
-                  {rec.ranked.length} eligible · {rec.excluded.length} filtered out
+                  {rec.ranked.length} eligible · {rec.excluded.length} filtered out ·
+                  times are the transport leg from the incident
                 </CardDescription>
               </div>
               {ranking ? <Spinner /> : null}
@@ -398,6 +537,8 @@ export function Dispatcher() {
                 rec.ranked.map((entry, index) => {
                   const isTop = index === 0;
                   const isSelected = entry.hospital.id === selectedId;
+                  const total =
+                    Math.round(entry.etaMinutes) + Math.round(assigned?.responseMinutes ?? 0);
                   return (
                     <button
                       key={entry.hospital.id}
@@ -429,7 +570,15 @@ export function Dispatcher() {
                         ))}
                       </ul>
 
-                      {/* Score breakdown — the explainability the judges will ask about. */}
+                      {assigned ? (
+                        <p className="text-xs text-muted">
+                          Total to definitive care:{" "}
+                          <span className="font-medium text-foreground">{total} min</span>{" "}
+                          ({Math.round(assigned.responseMinutes)} to scene +{" "}
+                          {Math.round(entry.etaMinutes)} to hospital)
+                        </p>
+                      ) : null}
+
                       <div className="flex gap-3 text-xs text-muted">
                         {(
                           [
@@ -456,9 +605,17 @@ export function Dispatcher() {
               )}
 
               {rec.ranked.length > 0 ? (
-                <Button onClick={confirmDispatch} className="mt-1">
+                <Button
+                  onClick={confirmDispatch}
+                  disabled={!assignedId}
+                  className="mt-1"
+                >
                   <Check className="size-4" />
-                  {isOverride ? "Dispatch override" : "Confirm dispatch"}
+                  {!assignedId
+                    ? "Assign an ambulance first"
+                    : isOverride
+                      ? "Dispatch override"
+                      : "Confirm dispatch"}
                 </Button>
               ) : null}
 

@@ -16,15 +16,67 @@ hospital store and keyword triage. Add keys to upgrade each piece independently.
 
 ---
 
-## The two screens
+## The three screens
 
 | Route | Who | What |
 |---|---|---|
-| `/` | Dispatcher | Free-text intake → AI triage → ranked hospitals → override → dispatch |
-| `/hospital` | Hospital staff | Live capacity panel. **Run this on a second machine during the demo.** |
+| `/` | 119 dispatcher | Voice/text intake → AI triage → assign ambulance → rank hospitals → dispatch |
+| `/fleet` | *(stands in for the IoT units)* | Vehicle status, GPS freshness, certification |
+| `/hospital` | *(stands in for the HIS feed)* | Live bed / ICU / roster / ER capacity |
 
-Changes on `/hospital` re-rank `/` instantly over Supabase Realtime — no refresh, no
-socket server.
+Changes on either panel re-rank `/` instantly over Supabase Realtime — no refresh, no
+socket server. **Run at least one panel on a second machine during the demo.**
+
+---
+
+## The flow
+
+```
+119 call
+   │
+   ├─ dispatcher dictates or types what the caller reports
+   │     └─ Claude extracts { condition, severity, specialty, needsICU, redFlags }
+   │
+   ├─ ASSIGN AMBULANCE  ── nearest certified, available, GPS-fresh vehicle
+   │     └─ response leg: ambulance → incident
+   │
+   ├─ RANK HOSPITALS    ── live capacity + transport time from the incident
+   │     └─ transport leg: incident → hospital
+   │
+   └─ dispatcher confirms or overrides → hospital pre-alert
+         total time to definitive care = response + transport
+```
+
+Two legs, reported separately and summed. A vehicle 1 minute away pairing with a
+hospital 15 minutes out is a different clinical picture from the reverse, and the
+dispatcher sees both numbers rather than one blended ETA.
+
+---
+
+## Where the data comes from
+
+**Hospital availability** — the prototype uses a table edited by hand on `/hospital`.
+The real design reads it from each hospital's own information system: most Yangon
+hospitals are already digitalised, so the data exists; what's missing is the
+integration and the agreement to expose it.
+
+`src/lib/mediroute/feeds/hospital-feed.ts` is the seam. The engine, API and UI all
+talk to a `HospitalFeed` interface and cannot tell which implementation is behind it,
+so moving one hospital from manual entry to a live feed is a config change, not a
+rewrite. The production adapter is declared and documented but **deliberately not
+faked** — it throws rather than returning invented data.
+
+The hard parts there are not code: one integration per HIS vendor, a data-sharing
+agreement per hospital, and a staleness policy. A dead feed must degrade to
+*unknown* — never to "zero beds" (which silently hides a hospital that could help)
+and never to a cached optimistic number (which sends an ambulance to a full hospital).
+
+**Ambulance position** — from an on-board IoT unit reporting GPS to
+`/api/ambulances/[id]`. **Certification is the gate:** a vehicle without a fitted
+device reports no position, cannot be tracked, and is therefore never dispatchable —
+even when it is the closest vehicle to the patient. A GPS fix older than 10 minutes
+is treated as no fix at all, because dispatching on a stale position is worse than
+not dispatching.
 
 ---
 
@@ -81,19 +133,25 @@ hospital was actually correct.
 ```
 src/
   lib/mediroute/
-    engine.ts        ← ranking: filters, scoring, weights (pure, tested)
-    engine.test.ts   ← 18 tests incl. the seeded demo scenario
+    engine.ts        ← selectAmbulance + recommend (pure, tested)
+    engine.test.ts   ← 27 tests incl. both seeded demo scenarios
     triage.ts        ← Claude + keyword fallback
     geo.ts           ← haversine + ETA
     store.ts         ← the only module touching storage
+    feeds/
+      hospital-feed.ts  ← the HIS seam: manual today, live feed later
     use-hospitals.ts ← Realtime subscription, polls when Supabase is absent
+    use-fleet.ts     ← same, for ambulances
     types.ts         ← zod schemas + shared types
   components/mediroute/
-    dispatcher.tsx   ← intake, triage panel, ranked list, override
+    dispatcher.tsx   ← intake, triage, ambulance assignment, hospital ranking
+    voice-input.tsx  ← browser SpeechRecognition, typing always available
+    fleet-panel.tsx  ← stands in for the IoT units
     hospital-panel.tsx
-    map.tsx          ← dependency-free SVG map
+    map.tsx          ← dependency-free SVG map, both route legs
   app/api/
-    triage · hospitals · hospitals/[id] · recommend · dispatch
+    triage · ambulances · ambulances/[id] · hospitals · hospitals/[id]
+    recommend · dispatch
 supabase/migrations/ ← schema + seed
 ```
 
@@ -113,7 +171,31 @@ supabase/migrations/ ← schema + seed
 - **The offline path is real** — blank the env vars and everything still works with
   seeded data and keyword triage. Try it once before demo day so you've seen it.
 
-### Seeded scenario (real Yangon hospitals)
+- **Voice input is the one part that needs the network.** `SpeechRecognition` streams
+  audio to the browser vendor, and it is Chrome/Edge only. Everything else in
+  MediRoute works offline; this doesn't. The typing field is always visible and is the
+  fallback — demo the voice path first, but never make it load-bearing. A real
+  in-ambulance device would want an on-device model anyway (noisy cabin, no
+  connectivity, and clinical audio shouldn't leave the vehicle).
+
+### Seeded fleet scenario
+
+Incident at Sule Pagoda:
+
+| Vehicle | Response | Outcome |
+|---|---|---|
+| YGN-09 | ~0 min | **Rejected** — no IoT unit fitted, not certified |
+| YGN-02 | ~0 min | **Rejected** — already transporting |
+| **YGN-01** | **1 min** | **Assigned** — certified, available, fresh GPS |
+| YGN-04 | 3 min | Available, ranked second |
+| YGN-06 | — | **Rejected** — offline, GPS 2 hours stale |
+| YGN-11 | 26 min | Available, ranked third |
+
+The two vehicles physically closest to the patient are both unusable. That is the
+certification argument in one screen: **fitting the device is what makes a vehicle
+dispatchable at all.**
+
+### Seeded hospital scenario (real Yangon hospitals)
 
 Incident at Sule Pagoda, critical cardiac patient needing ICU:
 

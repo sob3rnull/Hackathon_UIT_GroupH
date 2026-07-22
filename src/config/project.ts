@@ -22,21 +22,22 @@ export const project = {
 
   nav: [
     { href: "/", label: "Dispatcher" },
+    { href: "/fleet", label: "Fleet" },
     { href: "/hospital", label: "Hospital panel" },
   ],
 
   highlights: [
     {
-      title: "Understands the note",
-      body: "Paramedics type in plain language. Claude extracts condition, severity and required specialty, and shows the findings that drove the call.",
+      title: "Hears the call",
+      body: "The 119 dispatcher dictates or types what the caller reports. Claude extracts condition, severity and required specialty, and shows the findings that drove the call.",
     },
     {
-      title: "Ranks on live capacity",
-      body: "Hard-filters hospitals that cannot treat this patient, then scores the rest on travel time, beds, specialists on duty and ER load.",
+      title: "Sends the right vehicle",
+      body: "Certified ambulances report GPS from an on-board IoT unit. The nearest available one is assigned — an uncertified vehicle is never dispatchable, however close it is.",
     },
     {
-      title: "Explains and defers",
-      body: "Every recommendation carries its reasoning and score breakdown. The dispatcher can override any of it, and nothing auto-dispatches.",
+      title: "Picks a hospital that can treat",
+      body: "Hard-filters hospitals that cannot take this patient, then ranks the rest on live capacity and travel time. Every recommendation shows its reasoning and can be overridden.",
     },
   ],
 } as const;

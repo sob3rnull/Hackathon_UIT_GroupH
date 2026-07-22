@@ -1,5 +1,9 @@
 import { etaMinutes, haversineKm } from "./geo";
 import type {
+  Ambulance,
+  AmbulanceCandidate,
+  AmbulanceRejection,
+  AmbulanceSelection,
   Excluded,
   Hospital,
   LatLng,
@@ -18,6 +22,13 @@ import type {
 
 /** Travel time at or beyond this many minutes scores zero. */
 export const UNACCEPTABLE_MINUTES = 45;
+
+/**
+ * A GPS fix older than this is treated as no fix at all — the vehicle may have
+ * moved far from where the system thinks it is, and dispatching on a stale
+ * position is worse than not dispatching.
+ */
+export const STALE_GPS_MINUTES = 10;
 
 /** Specialists on duty needed to score full marks on the doctor term. */
 const DOCTORS_FOR_FULL_SCORE = 2;
@@ -129,6 +140,80 @@ function scoreOne(
   }
 
   return { hospital, score, distanceKm, etaMinutes: eta, parts, reasons };
+}
+
+/**
+ * Pick which ambulance to send to the incident. Runs BEFORE hospital ranking:
+ * the 119 dispatcher assigns a vehicle, then that vehicle's patient is routed
+ * to a hospital.
+ *
+ * Certification is a hard gate by design — a vehicle without a fitted IoT unit
+ * reports no position and cannot be tracked, so the system must not be able to
+ * dispatch it even if it happens to be parked next to the patient.
+ *
+ * `now` is injected rather than read from the clock so this stays pure and the
+ * stale-GPS rule is testable.
+ */
+export function selectAmbulance(
+  ambulances: Ambulance[],
+  incident: LatLng,
+  now: Date = new Date(),
+): AmbulanceSelection {
+  const candidates: AmbulanceCandidate[] = [];
+  const rejected: AmbulanceRejection[] = [];
+
+  for (const ambulance of ambulances) {
+    if (!ambulance.certified) {
+      rejected.push({
+        ambulance,
+        reason: ambulance.device_id
+          ? "Not certified"
+          : "No IoT unit fitted — not certified",
+      });
+      continue;
+    }
+
+    if (ambulance.status !== "available") {
+      rejected.push({ ambulance, reason: `Unavailable (${ambulance.status})` });
+      continue;
+    }
+
+    if (ambulance.lat === null || ambulance.lng === null) {
+      rejected.push({ ambulance, reason: "No GPS position reported" });
+      continue;
+    }
+
+    const fixAgeMinutes = ambulance.gps_fix_at
+      ? (now.getTime() - new Date(ambulance.gps_fix_at).getTime()) / 60000
+      : Infinity;
+
+    if (!Number.isFinite(fixAgeMinutes) || fixAgeMinutes > STALE_GPS_MINUTES) {
+      rejected.push({
+        ambulance,
+        reason: Number.isFinite(fixAgeMinutes)
+          ? `GPS fix ${Math.round(fixAgeMinutes)} min old`
+          : "No GPS fix timestamp",
+      });
+      continue;
+    }
+
+    const distanceKm = haversineKm(incident, {
+      lat: ambulance.lat,
+      lng: ambulance.lng,
+    });
+    candidates.push({
+      ambulance,
+      distanceKm,
+      responseMinutes: etaMinutes(distanceKm),
+    });
+  }
+
+  // Nearest first. Crew level is shown to the dispatcher but deliberately not
+  // scored — sending a slower advanced unit past a closer basic one is a
+  // clinical judgement, not something to bury in a weighting.
+  candidates.sort((a, b) => a.responseMinutes - b.responseMinutes);
+
+  return { candidates, rejected };
 }
 
 export function recommend(
