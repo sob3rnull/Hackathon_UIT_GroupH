@@ -17,6 +17,10 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Field, Select, Textarea } from "@/components/ui/field";
 import { ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { IncidentMap } from "@/components/mediroute/map";
+import {
+  GoogleIncidentMap,
+  googleMapsAvailable,
+} from "@/components/mediroute/google-map";
 import { VoiceInput } from "@/components/mediroute/voice-input";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useFleet } from "@/lib/mediroute/use-fleet";
@@ -80,6 +84,13 @@ export function Dispatcher() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
 
+  // Google map when a key exists; drops to the offline SVG on load failure or
+  // by hand. The toggle exists so the offline path can be rehearsed, not
+  // discovered live on stage.
+  const [mapMode, setMapMode] = useState<"google" | "svg">(
+    googleMapsAvailable ? "google" : "svg",
+  );
+
   useEffect(() => {
     fetch("/api/triage")
       .then((r) => r.json())
@@ -120,15 +131,24 @@ export function Dispatcher() {
   }, []);
 
   // Live re-plan when hospital capacity or fleet status changes elsewhere.
+  //
+  // Debounced 1.2s: each plan call costs real Google Routes elements, and a
+  // staff member clicking a bed counter five times fires five realtime events.
+  // The cleanup cancels the pending call on every new event, so a burst
+  // coalesces into ONE Routes call after the clicking stops. The banner still
+  // appears immediately so the dispatcher knows a change is inbound.
   useEffect(() => {
     if ((revision === 0 && fleetRevision === 0) || !triage) return;
     // Reacting to an external realtime event (a change on another machine) —
     // the documented escape hatch for this rule. Once per event.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStaleNotice(true);
-    void rank(triage, incident, true);
-    const timer = setTimeout(() => setStaleNotice(false), 4000);
-    return () => clearTimeout(timer);
+    const planTimer = setTimeout(() => void rank(triage, incident, true), 1200);
+    const noticeTimer = setTimeout(() => setStaleNotice(false), 4000);
+    return () => {
+      clearTimeout(planTimer);
+      clearTimeout(noticeTimer);
+    };
   }, [revision, fleetRevision, triage, incident, rank]);
 
   async function handleTriage() {
@@ -360,6 +380,17 @@ export function Dispatcher() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {googleMapsAvailable ? (
+                <button
+                  onClick={() =>
+                    setMapMode((m) => (m === "google" ? "svg" : "google"))
+                  }
+                  className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
+                  title="Switch between the Google basemap and the offline map"
+                >
+                  {mapMode === "google" ? "Offline map" : "Google map"}
+                </button>
+              ) : null}
               <Badge tone={backendMode === "n8n" ? "accent" : "neutral"}>
                 {backendMode === "n8n" ? "n8n backend" : "local backend"}
               </Badge>
@@ -372,6 +403,18 @@ export function Dispatcher() {
           <CardBody>
             {loading ? (
               <Skeleton rows={1} />
+            ) : mapMode === "google" ? (
+              <GoogleIncidentMap
+                hospitals={hospitals}
+                origin={incident}
+                ambulances={ambulances}
+                assignedAmbulanceId={assignedId}
+                recommendedId={topId}
+                selectedId={selectedId}
+                excludedIds={excludedIds}
+                onPickOrigin={moveIncident}
+                onFallback={() => setMapMode("svg")}
+              />
             ) : (
               <IncidentMap
                 hospitals={hospitals}

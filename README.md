@@ -109,6 +109,38 @@ which is why the route works either way.
 
 ---
 
+## Google Maps Platform — keys and cost control
+
+Two keys, opposite rules:
+
+| Key | Env var | Visibility | Protection |
+|---|---|---|---|
+| Routes API | `GOOGLE_ROUTES_API_KEY` (+ inside n8n) | Server-side secret | Never `NEXT_PUBLIC_`; API-restrict to Routes API |
+| Maps JavaScript | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | **Public by design** — ships in the bundle | HTTP-referrer restriction (localhost + deploy domain) + API-restrict to Maps JS. **Set this in Cloud Console; it is the entire security model for this key.** |
+
+Blank either one and the app degrades gracefully: no Maps key → offline SVG map;
+no Routes key → haversine ETAs.
+
+**Cost guards built into the code** (free tier is 10k events/month per SKU — the
+$300 trial credit sits untouched behind that):
+
+- *Maps JS bills per map instantiation*, not per interaction. The map object is
+  created once per page load and only overlays update afterwards. Don't key or
+  conditionally unmount `GoogleIncidentMap` — every remount is a billable load.
+- *Routes bills per matrix element.* Each plan is two small matrices
+  (fleet→incident, incident→hospitals: 6+6 = 12 elements), not one combined
+  7×7 = 49.
+- *Live re-planning is debounced 1.2s* — five rapid bed-count clicks on the
+  hospital panel coalesce into one Routes call, not five.
+- *Route lines are straight connectors on purpose.* The ETAs are real Routes
+  times, but drawable road geometry is a separate billable call per pair —
+  decoration not worth paying for.
+
+Rough demo-day math: a full day of rehearsing ≈ tens of map loads + a few
+hundred Routes elements. The free tier covers this ~50× over.
+
+---
+
 ## Where the data comes from
 
 **Hospital availability** — the prototype uses a table edited by hand on `/hospital`.
