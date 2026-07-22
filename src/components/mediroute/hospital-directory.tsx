@@ -104,6 +104,11 @@ export function HospitalDirectory() {
   const [method, setMethod] = React.useState<PaymentMethod>("kbz_pay");
   /** Wallet phone — the only payer detail that is actually recorded. */
   const [payerPhone, setPayerPhone] = React.useState("");
+  /** Wallet confirmation: code issued for the phone, then typed back in. */
+  const [otpSent, setOtpSent] = React.useState(false);
+  const [otpDemoCode, setOtpDemoCode] = React.useState("");
+  const [otpInput, setOtpInput] = React.useState("");
+  const [sendingOtp, setSendingOtp] = React.useState(false);
   // Everything below is purely visual — never sent and never stored.
   const [bank, setBank] = React.useState<string>(myanmarBanks[0]);
   const [accountNumber, setAccountNumber] = React.useState("");
@@ -113,6 +118,42 @@ export function HospitalDirectory() {
   const [submitting, setSubmitting] = React.useState(false);
 
   const isWallet = walletMethods.includes(method);
+  const cleanPhone = payerPhone.replace(/[\s-]/g, "");
+  const phoneValid = myanmarPhonePattern.test(cleanPhone);
+
+  const resetOtp = () => {
+    setOtpSent(false);
+    setOtpDemoCode("");
+    setOtpInput("");
+  };
+
+  const sendOtp = async () => {
+    setSendingOtp(true);
+    try {
+      const response = await fetch("/api/donations/otp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ phone: cleanPhone }),
+      });
+      const result: ApiResult<{ demo_code: string }> = await response.json();
+      if (!result.ok) throw new Error(result.error);
+      setOtpSent(true);
+      setOtpDemoCode(result.data.demo_code);
+      setOtpInput("");
+      toast({
+        title: "Verification code sent",
+        description: `Enter the code shown in the demo SMS to confirm ${paymentMethodLabel[method]}.`,
+      });
+    } catch (cause) {
+      toast({
+        tone: "danger",
+        title: "Could not send the code",
+        description: cause instanceof Error ? cause.message : undefined,
+      });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
 
   const pickHospital = (id: string) => {
     setHospitalId(id);
@@ -130,11 +171,19 @@ export function HospitalDirectory() {
       toast({ tone: "danger", title: "Please enter a valid amount" });
       return;
     }
-    if (isWallet && !myanmarPhonePattern.test(payerPhone.replace(/[\s-]/g, ""))) {
+    if (isWallet && !phoneValid) {
       toast({
         tone: "danger",
         title: "Enter the wallet's phone number",
         description: "Myanmar mobile format, e.g. 09 7700 1122",
+      });
+      return;
+    }
+    if (isWallet && (!otpSent || otpInput.trim().length !== 6)) {
+      toast({
+        tone: "danger",
+        title: "Confirm the payment first",
+        description: "Send the verification code and enter the 6 digits.",
       });
       return;
     }
@@ -158,7 +207,8 @@ export function HospitalDirectory() {
           amount: value,
           message,
           payment_method: method,
-          payer_phone: isWallet ? payerPhone.replace(/[\s-]/g, "") : "",
+          payer_phone: isWallet ? cleanPhone : "",
+          otp: isWallet ? otpInput.trim() : "",
         }),
       });
       const result: ApiResult<Donation> = await response.json();
@@ -173,6 +223,7 @@ export function HospitalDirectory() {
       setAmount("");
       setMessage("");
       setPayerPhone("");
+      resetOtp();
       setAccountNumber("");
       setCardName("");
       setCardNumber("");
@@ -303,7 +354,10 @@ export function HospitalDirectory() {
                       <button
                         key={option}
                         type="button"
-                        onClick={() => setMethod(option)}
+                        onClick={() => {
+                          setMethod(option);
+                          resetOtp();
+                        }}
                         aria-pressed={method === option}
                         className={cn(
                           "rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors",
@@ -319,22 +373,63 @@ export function HospitalDirectory() {
                 </div>
 
                 {isWallet ? (
-                  <Field
-                    label={`${paymentMethodLabel[method]} phone number`}
-                    htmlFor="payer-phone"
-                    hint="The Myanmar mobile number the wallet is registered to."
-                  >
-                    <Input
-                      id="payer-phone"
-                      type="tel"
-                      inputMode="tel"
-                      value={payerPhone}
-                      onChange={(e) => setPayerPhone(e.target.value)}
-                      placeholder="09 7700 1122"
-                      maxLength={15}
-                      required
-                    />
-                  </Field>
+                  <div className="flex flex-col gap-3">
+                    <Field
+                      label={`${paymentMethodLabel[method]} phone number`}
+                      htmlFor="payer-phone"
+                      hint="The Myanmar mobile number the wallet is registered to."
+                    >
+                      <div className="flex gap-2">
+                        <Input
+                          id="payer-phone"
+                          type="tel"
+                          inputMode="tel"
+                          value={payerPhone}
+                          onChange={(e) => {
+                            setPayerPhone(e.target.value);
+                            resetOtp();
+                          }}
+                          placeholder="09 7700 1122"
+                          maxLength={15}
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => void sendOtp()}
+                          disabled={!phoneValid || sendingOtp}
+                          className="shrink-0"
+                        >
+                          {sendingOtp ? <Spinner /> : null}
+                          {otpSent ? "Resend code" : "Send code"}
+                        </Button>
+                      </div>
+                    </Field>
+
+                    {otpSent ? (
+                      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
+                        <p className="rounded-md border border-dashed border-accent/40 bg-accent-soft/60 px-3 py-2 font-mono text-xs text-accent-hover dark:text-accent">
+                          Demo SMS to {cleanPhone}: your MediRoute code is{" "}
+                          <span className="font-semibold">{otpDemoCode}</span>
+                        </p>
+                        <Field
+                          label="Verification code"
+                          htmlFor="otp-code"
+                          hint="Enter the 6-digit code to confirm the payment. Expires in 5 minutes."
+                        >
+                          <Input
+                            id="otp-code"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            value={otpInput}
+                            onChange={(e) => setOtpInput(e.target.value)}
+                            placeholder="123456"
+                            maxLength={6}
+                          />
+                        </Field>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
 
                 {method === "bank_transfer" ? (

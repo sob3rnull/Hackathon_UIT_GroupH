@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createDonation, donationTotals, listDonations } from "@/lib/mediroute/store";
+import { verifyOtp } from "@/lib/mediroute/otp";
 import {
   myanmarPhonePattern,
   paymentMethods,
@@ -16,6 +17,8 @@ const bodySchema = z
     // Recorded for display only — no gateway is called, nothing is charged.
     payment_method: z.enum(paymentMethods),
     payer_phone: z.string().trim().max(20).default(""),
+    /** Verification code from /api/donations/otp; wallet methods only. */
+    otp: z.string().trim().max(10).default(""),
   })
   .superRefine((value, ctx) => {
     // Wallets are registered to a phone number — that's the one payer detail
@@ -49,8 +52,21 @@ export async function POST(request: Request) {
     );
   }
 
+  const { otp, ...input } = parsed.data;
+
+  // Wallet payments must be confirmed with the code sent to the wallet's
+  // phone — the donation is only recorded once it checks out.
+  if (walletMethods.includes(input.payment_method)) {
+    if (!verifyOtp(input.payer_phone, otp)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid or expired verification code" },
+        { status: 400 },
+      );
+    }
+  }
+
   try {
-    const row = await createDonation(parsed.data);
+    const row = await createDonation(input);
     return NextResponse.json({ ok: true, data: row }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
