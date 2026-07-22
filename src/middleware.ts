@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { HOME, allowedOn, isPublicPath, isRole } from "@/lib/auth/roles";
+import {
+  HOME,
+  allowedOn,
+  isPublicPath,
+  isRole,
+  isSignedOutOnlyPath,
+} from "@/lib/auth/roles";
 
 /**
  * Coarse routing only — NOT the security boundary.
@@ -37,7 +43,9 @@ export async function middleware(request: NextRequest) {
   const home = HOME[role];
 
   // Signed in but sitting on the login screen or the root — send them home.
-  if (path === "/" || isPublicPath(path)) {
+  // /update-password and /auth/* are excluded: recovery signs the user in
+  // before they get there, so bouncing them would strand the reset flow.
+  if (path === "/" || isSignedOutOnlyPath(path)) {
     return NextResponse.redirect(new URL(home, request.url));
   }
 

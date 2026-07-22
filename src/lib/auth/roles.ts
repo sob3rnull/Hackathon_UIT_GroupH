@@ -36,6 +36,29 @@ export function isPublicPath(path: string): boolean {
   );
 }
 
+/**
+ * Paths a signed-in user should be bounced away from.
+ *
+ * Deliberately excludes /update-password: password recovery hands the user a
+ * session before they reach that screen, so treating it like /login would make
+ * it permanently unreachable. /auth/* is excluded for the same reason — the
+ * callback route needs to run while a session exists.
+ */
+export function isSignedOutOnlyPath(path: string): boolean {
+  return path === "/login" || path === "/reset-password";
+}
+
+/**
+ * Rejects open redirects. Only same-origin absolute paths survive; "//evil.com"
+ * and "https://evil.com" are protocol-relative / absolute URLs and must not be
+ * followed after sign-in.
+ */
+export function safeNext(next: string | null | undefined): string | null {
+  if (!next) return null;
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 export function allowedOn(path: string, role: Role): boolean {
   const rule = GUARD.find(([prefix]) => path.startsWith(prefix));
   return !rule || rule[1].includes(role);
