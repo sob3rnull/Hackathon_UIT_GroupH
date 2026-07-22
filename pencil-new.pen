@@ -1,0 +1,1728 @@
+{
+  "version": "2.14",
+  "children": [
+    {
+      "type": "frame",
+      "id": "f8lu6",
+      "x": 80,
+      "y": 80,
+      "name": "Hospital Card",
+      "reusable": true,
+      "width": 416,
+      "fill": "$surface",
+      "cornerRadius": 16,
+      "stroke": "$border",
+      "strokeWidth": 1,
+      "effect": {
+        "type": "shadow",
+        "shadowType": "outer",
+        "color": "#172A3A14",
+        "offset": {
+          "x": 0,
+          "y": 2
+        },
+        "blur": 10
+      },
+      "layout": "vertical",
+      "gap": 12,
+      "padding": 20,
+      "children": [
+        {
+          "type": "frame",
+          "id": "jtM7v",
+          "name": "Head",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "F0r0la",
+              "name": "Hospital Name",
+              "fill": "$text",
+              "content": "Yangon General Hospital",
+              "fontFamily": "$font",
+              "fontSize": 17,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "oNUKR",
+              "name": "Status Badge",
+              "fill": "$success-soft",
+              "cornerRadius": 99,
+              "padding": [
+                4,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "i4ksv",
+                  "name": "Status Text",
+                  "fill": "$success",
+                  "content": "Accepting",
+                  "fontFamily": "$font",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "KLjYl",
+          "name": "Blurb",
+          "fill": "$muted",
+          "textGrowth": "fixed-width",
+          "width": "fill_container",
+          "content": "The country's largest teaching hospital and the main tertiary referral centre for trauma, cardiac and burn cases.",
+          "lineHeight": 1.5,
+          "fontFamily": "$font",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "C4aBeQ",
+          "name": "Chips",
+          "gap": 6,
+          "children": [
+            {
+              "type": "frame",
+              "id": "xxjC4",
+              "name": "Chip Trauma",
+              "fill": "$aqua",
+              "cornerRadius": 99,
+              "padding": [
+                4,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "xlVkI",
+                  "name": "Chip Label",
+                  "fill": "$accent-deep",
+                  "content": "Trauma",
+                  "fontFamily": "$font",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DQgZf",
+              "name": "Chip Cardiac",
+              "fill": "$aqua",
+              "cornerRadius": 99,
+              "padding": [
+                4,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "cGPS4",
+                  "name": "Chip Label",
+                  "fill": "$accent-deep",
+                  "content": "Cardiac",
+                  "fontFamily": "$font",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "xwTRi",
+              "name": "Chip Burns",
+              "fill": "$aqua",
+              "cornerRadius": 99,
+              "padding": [
+                4,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Fscpi",
+                  "name": "Chip Label",
+                  "fill": "$accent-deep",
+                  "content": "Burns",
+                  "fontFamily": "$font",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qkOZY",
+              "name": "Chip +2",
+              "fill": "$aqua",
+              "cornerRadius": 99,
+              "padding": [
+                4,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "NSwMZ",
+                  "name": "Chip Label",
+                  "fill": "$accent-deep",
+                  "content": "+2",
+                  "fontFamily": "$font",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "XIwSO",
+          "name": "Stats",
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "lhOI3",
+              "name": "Beds Stat",
+              "fill": "$text",
+              "content": "42 beds free",
+              "fontFamily": "$font-mono",
+              "fontSize": 12.5,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "O2Uux",
+              "name": "ICU Stat",
+              "fill": "$text",
+              "content": "6 ICU free",
+              "fontFamily": "$font-mono",
+              "fontSize": 12.5,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "VN50t",
+          "name": "Divider",
+          "fill": "$border",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "zqrCm",
+          "name": "Foot",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "WPrjW",
+              "name": "Raised",
+              "fill": "$accent-deep",
+              "content": "MMK 250,000 raised · 3 donors",
+              "fontFamily": "$font",
+              "fontSize": 12.5,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "JP4xu",
+              "name": "Donate Button",
+              "fill": "$accent",
+              "cornerRadius": 10,
+              "padding": [
+                8,
+                16
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "PCjzM",
+                  "name": "Donate Label",
+                  "fill": "#FFFFFF",
+                  "content": "Donate",
+                  "fontFamily": "$font",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "oVy5g",
+      "x": 80,
+      "y": 438,
+      "name": "Public Landing",
+      "width": 1440,
+      "fill": "$bg",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "pX9fZ",
+          "name": "Header",
+          "width": "fill_container",
+          "fill": "$surface",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "padding": [
+            18,
+            64
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "cnPcM",
+              "name": "Brand",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "JzmV5",
+                  "name": "Logo Mark",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "$accent-deep",
+                  "cornerRadius": 9,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "NO3xy",
+                      "name": "Logo Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "cross",
+                      "library": "lucide",
+                      "fill": "#FFFFFF"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "WM1yN",
+                  "name": "Brand Name",
+                  "fill": "$text",
+                  "content": "MediRoute",
+                  "fontFamily": "$font",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Iweq8",
+              "name": "Nav",
+              "gap": 28,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "AZTEa",
+                  "name": "Nav Hospitals",
+                  "fill": "$muted",
+                  "content": "Hospitals",
+                  "fontFamily": "$font",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "vPuvn",
+                  "name": "Nav Dispatcher",
+                  "fill": "$muted",
+                  "content": "Dispatcher",
+                  "fontFamily": "$font",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ZAoCV",
+                  "name": "Nav Hospital staff",
+                  "fill": "$muted",
+                  "content": "Hospital staff",
+                  "fontFamily": "$font",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "r92xBP",
+                  "name": "Nav Ambulance",
+                  "fill": "$muted",
+                  "content": "Ambulance",
+                  "fontFamily": "$font",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "MGjdd",
+                  "name": "Nav History",
+                  "fill": "$muted",
+                  "content": "History",
+                  "fontFamily": "$font",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "z2prB4",
+              "name": "Header CTA",
+              "fill": "$accent",
+              "cornerRadius": 10,
+              "padding": [
+                9,
+                18
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "A9QlL1",
+                  "name": "Header CTA Label",
+                  "fill": "#FFFFFF",
+                  "content": "Support a hospital",
+                  "fontFamily": "$font",
+                  "fontSize": 13.5,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "c9r0ap",
+          "name": "Hero",
+          "width": "fill_container",
+          "fill": "$aqua",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            72,
+            64,
+            64,
+            64
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "yNC1o",
+              "name": "Hero Badge",
+              "fill": "$surface",
+              "cornerRadius": 99,
+              "stroke": "$border",
+              "strokeWidth": 1,
+              "padding": [
+                6,
+                14
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XHAaw",
+                  "name": "Hero Badge Text",
+                  "fill": "$accent-deep",
+                  "content": "Yangon emergency care network",
+                  "fontFamily": "$font",
+                  "fontSize": 12.5,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "gNo50",
+              "name": "Hero Title",
+              "fill": "$text",
+              "textGrowth": "fixed-width",
+              "width": 760,
+              "content": "Every minute matters. Help hospitals stay ready.",
+              "lineHeight": 1.15,
+              "textAlign": "center",
+              "fontFamily": "$font",
+              "fontSize": 44,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "RfkWM",
+              "name": "Hero Sub",
+              "fill": "$muted",
+              "textGrowth": "fixed-width",
+              "width": 640,
+              "content": "MediRoute sends every ambulance to the hospital that can actually treat the patient. Browse the hospitals in the network and support the ones that need it most.",
+              "lineHeight": 1.55,
+              "textAlign": "center",
+              "fontFamily": "$font",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "hdY77",
+              "name": "Hero CTAs",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "NSikD",
+                  "name": "CTA Donate",
+                  "fill": "$accent-deep",
+                  "cornerRadius": 12,
+                  "padding": [
+                    12,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Q1rDpb",
+                      "name": "CTA Donate Label",
+                      "fill": "#FFFFFF",
+                      "content": "Support a hospital",
+                      "fontFamily": "$font",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "p65Hc",
+                  "name": "CTA Console",
+                  "fill": "$surface",
+                  "cornerRadius": 12,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "padding": [
+                    12,
+                    24
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Y7UiEN",
+                      "name": "CTA Console Label",
+                      "fill": "$text",
+                      "content": "Open the dispatch console",
+                      "fontFamily": "$font",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "KCq2W",
+          "name": "Directory",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 24,
+          "padding": [
+            56,
+            64
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "YEeAl",
+              "name": "Directory Head",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Pm1su",
+                  "name": "Directory Title",
+                  "fill": "$text",
+                  "content": "Hospitals in the network",
+                  "fontFamily": "$font",
+                  "fontSize": 28,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "KUhdu",
+                  "name": "Directory Sub",
+                  "fill": "$muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Live capacity from six Yangon hospitals. Donations go toward beds, supplies and ambulance readiness.",
+                  "fontFamily": "$font",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Qb2Af",
+              "name": "Card Row 1",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "id": "XESOR",
+                  "type": "ref",
+                  "ref": "f8lu6",
+                  "name": "Yangon General Hospital",
+                  "width": "fill_container",
+                  "descendants": {
+                    "F0r0la": {
+                      "content": "Yangon General Hospital"
+                    },
+                    "oNUKR": {
+                      "fill": "$success-soft"
+                    },
+                    "i4ksv": {
+                      "content": "Accepting",
+                      "fill": "$success"
+                    },
+                    "KLjYl": {
+                      "content": "The country's largest teaching hospital and the main tertiary referral centre for trauma, cardiac and burn cases."
+                    },
+                    "xlVkI": {
+                      "content": "Trauma"
+                    },
+                    "cGPS4": {
+                      "content": "Cardiac"
+                    },
+                    "Fscpi": {
+                      "content": "Burns"
+                    },
+                    "NSwMZ": {
+                      "content": "+2"
+                    },
+                    "lhOI3": {
+                      "content": "42 beds free"
+                    },
+                    "O2Uux": {
+                      "content": "6 ICU free"
+                    },
+                    "WPrjW": {
+                      "content": "MMK 250,000 raised · 3 donors"
+                    }
+                  }
+                },
+                {
+                  "id": "J6nv5",
+                  "type": "ref",
+                  "ref": "f8lu6",
+                  "name": "Yangon Children's Hospital",
+                  "width": "fill_container",
+                  "descendants": {
+                    "F0r0la": {
+                      "content": "Yangon Children's Hospital"
+                    },
+                    "oNUKR": {
+                      "fill": "$success-soft"
+                    },
+                    "i4ksv": {
+                      "content": "Accepting",
+                      "fill": "$success"
+                    },
+                    "KLjYl": {
+                      "content": "Myanmar's specialist paediatric referral hospital, caring for newborns and children and handling obstetric emergencies."
+                    },
+                    "xlVkI": {
+                      "content": "Paediatrics"
+                    },
+                    "cGPS4": {
+                      "content": "Obstetrics"
+                    },
+                    "Fscpi": {
+                      "content": "NICU"
+                    },
+                    "qkOZY": {
+                      "enabled": false
+                    },
+                    "lhOI3": {
+                      "content": "18 beds free"
+                    },
+                    "O2Uux": {
+                      "content": "3 ICU free"
+                    },
+                    "WPrjW": {
+                      "content": "MMK 120,000 raised · 2 donors"
+                    }
+                  }
+                },
+                {
+                  "id": "I96W4k",
+                  "type": "ref",
+                  "ref": "f8lu6",
+                  "name": "North Okkalapa General",
+                  "width": "fill_container",
+                  "descendants": {
+                    "F0r0la": {
+                      "content": "North Okkalapa General"
+                    },
+                    "oNUKR": {
+                      "fill": "$warning-soft"
+                    },
+                    "i4ksv": {
+                      "content": "Near capacity",
+                      "fill": "$warning"
+                    },
+                    "KLjYl": {
+                      "content": "A busy general and teaching hospital serving Yangon's densely populated northern townships."
+                    },
+                    "xlVkI": {
+                      "content": "General"
+                    },
+                    "cGPS4": {
+                      "content": "Surgery"
+                    },
+                    "Fscpi": {
+                      "content": "Orthopaedics"
+                    },
+                    "qkOZY": {
+                      "enabled": false
+                    },
+                    "lhOI3": {
+                      "content": "6 beds free"
+                    },
+                    "O2Uux": {
+                      "content": "1 ICU free"
+                    },
+                    "WPrjW": {
+                      "content": "MMK 80,000 raised · 1 donor"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "tBlN7",
+              "name": "Card Row 2",
+              "width": "fill_container",
+              "gap": 24,
+              "children": [
+                {
+                  "id": "StvJP",
+                  "type": "ref",
+                  "ref": "f8lu6",
+                  "name": "Insein General Hospital",
+                  "width": "fill_container",
+                  "descendants": {
+                    "F0r0la": {
+                      "content": "Insein General Hospital"
+                    },
+                    "oNUKR": {
+                      "fill": "$success-soft"
+                    },
+                    "i4ksv": {
+                      "content": "Accepting",
+                      "fill": "$success"
+                    },
+                    "KLjYl": {
+                      "content": "The main public hospital for north-western Yangon, with round-the-clock emergency and surgical services."
+                    },
+                    "xlVkI": {
+                      "content": "General"
+                    },
+                    "cGPS4": {
+                      "content": "Trauma"
+                    },
+                    "Fscpi": {
+                      "content": "Medicine"
+                    },
+                    "qkOZY": {
+                      "enabled": false
+                    },
+                    "lhOI3": {
+                      "content": "24 beds free"
+                    },
+                    "O2Uux": {
+                      "content": "4 ICU free"
+                    },
+                    "WPrjW": {
+                      "content": "Be the first donor"
+                    }
+                  }
+                },
+                {
+                  "id": "FzgFb",
+                  "type": "ref",
+                  "ref": "f8lu6",
+                  "name": "Thingangyun Sanpya",
+                  "width": "fill_container",
+                  "descendants": {
+                    "F0r0la": {
+                      "content": "Thingangyun Sanpya"
+                    },
+                    "oNUKR": {
+                      "fill": "$warning-soft"
+                    },
+                    "i4ksv": {
+                      "content": "Near capacity",
+                      "fill": "$warning"
+                    },
+                    "KLjYl": {
+                      "content": "A general hospital in eastern Yangon known for its stroke and cardiology response teams."
+                    },
+                    "xlVkI": {
+                      "content": "General"
+                    },
+                    "cGPS4": {
+                      "content": "Cardiology"
+                    },
+                    "Fscpi": {
+                      "content": "Stroke"
+                    },
+                    "qkOZY": {
+                      "enabled": false
+                    },
+                    "lhOI3": {
+                      "content": "4 beds free"
+                    },
+                    "O2Uux": {
+                      "content": "0 ICU free"
+                    },
+                    "WPrjW": {
+                      "content": "MMK 45,000 raised · 1 donor"
+                    }
+                  }
+                },
+                {
+                  "id": "URfDI",
+                  "type": "ref",
+                  "ref": "f8lu6",
+                  "name": "West Yangon General",
+                  "width": "fill_container",
+                  "descendants": {
+                    "F0r0la": {
+                      "content": "West Yangon General"
+                    },
+                    "oNUKR": {
+                      "fill": "$danger-soft"
+                    },
+                    "i4ksv": {
+                      "content": "Diverting",
+                      "fill": "$danger"
+                    },
+                    "KLjYl": {
+                      "content": "A district general hospital covering the western townships, currently over capacity and diverting new arrivals."
+                    },
+                    "xlVkI": {
+                      "content": "General"
+                    },
+                    "cGPS4": {
+                      "content": "Surgery"
+                    },
+                    "Fscpi": {
+                      "content": "Burns"
+                    },
+                    "qkOZY": {
+                      "enabled": false
+                    },
+                    "lhOI3": {
+                      "content": "0 beds free"
+                    },
+                    "O2Uux": {
+                      "content": "0 ICU free"
+                    },
+                    "WPrjW": {
+                      "content": "MMK 60,000 raised · 2 donors"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "SloMV",
+          "name": "Donate Section",
+          "width": "fill_container",
+          "fill": "$accent-deep",
+          "gap": 64,
+          "padding": 64,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "OATYh",
+              "name": "Donate Copy",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "d8xRVm",
+                  "name": "Donate Title",
+                  "fill": "#FFFFFF",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Your support keeps ambulances moving",
+                  "lineHeight": 1.2,
+                  "fontFamily": "$font",
+                  "fontSize": 32,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "EwMXY",
+                  "name": "Donate Body",
+                  "fill": "#C8E4E5",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Every donation helps a hospital keep beds open, restock emergency supplies and stay ready for the next call. Pick a hospital — or give to the general fund and we'll route it where the need is greatest.",
+                  "lineHeight": 1.6,
+                  "fontFamily": "$font",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "J84nM",
+                  "name": "Donate Bullets",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "aEA5c",
+                      "name": "Bullet",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "KbCsJ",
+                          "name": "Bullet Icon",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "heart-handshake",
+                          "library": "lucide",
+                          "fill": "#74B3CE"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xrYe7",
+                          "name": "Bullet Text",
+                          "fill": "#EAF6F7",
+                          "content": "100% goes to the hospital you choose",
+                          "fontFamily": "$font",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZHHwg",
+                      "name": "Bullet",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "NJWsZ",
+                          "name": "Bullet Icon",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "heart-handshake",
+                          "library": "lucide",
+                          "fill": "#74B3CE"
+                        },
+                        {
+                          "type": "text",
+                          "id": "bqDLn",
+                          "name": "Bullet Text",
+                          "fill": "#EAF6F7",
+                          "content": "Live totals shown on every hospital card",
+                          "fontFamily": "$font",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "UM2ab",
+                      "name": "Bullet",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "kIkn2",
+                          "name": "Bullet Icon",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "heart-handshake",
+                          "library": "lucide",
+                          "fill": "#74B3CE"
+                        },
+                        {
+                          "type": "text",
+                          "id": "d03RZ",
+                          "name": "Bullet Text",
+                          "fill": "#EAF6F7",
+                          "content": "Demo only — no real payment is processed",
+                          "fontFamily": "$font",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SZszm",
+              "name": "Donate Form",
+              "width": 460,
+              "fill": "$surface",
+              "cornerRadius": 16,
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#00000033",
+                "offset": {
+                  "x": 0,
+                  "y": 8
+                },
+                "blur": 28
+              },
+              "layout": "vertical",
+              "gap": 14,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "cfdr7",
+                  "name": "Form Title",
+                  "fill": "$text",
+                  "content": "Make a donation",
+                  "fontFamily": "$font",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "mET0U",
+                  "name": "Field Your name",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "y0reSY",
+                      "name": "Label",
+                      "fill": "$text",
+                      "content": "Your name",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "D03eBq",
+                      "name": "Input",
+                      "width": "fill_container",
+                      "fill": "$bg",
+                      "cornerRadius": 10,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "cRQB5",
+                          "name": "Value",
+                          "fill": "$muted",
+                          "content": "Daw Aye Aye",
+                          "fontFamily": "$font",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hn8Iu",
+                  "name": "Field Amount (MMK)",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LABXW",
+                      "name": "Label",
+                      "fill": "$text",
+                      "content": "Amount (MMK)",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LsBdF",
+                      "name": "Input",
+                      "width": "fill_container",
+                      "fill": "$bg",
+                      "cornerRadius": 10,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "slUnR",
+                          "name": "Value",
+                          "fill": "$muted",
+                          "content": "50,000",
+                          "fontFamily": "$font",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "r1r1E1",
+                  "name": "Field Hospital",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "W1e5qU",
+                      "name": "Label",
+                      "fill": "$text",
+                      "content": "Hospital",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gGUO9",
+                      "name": "Input",
+                      "width": "fill_container",
+                      "fill": "$bg",
+                      "cornerRadius": 10,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "qNAbP",
+                          "name": "Value",
+                          "fill": "$text",
+                          "content": "Yangon General Hospital",
+                          "fontFamily": "$font",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "oFdrU",
+                          "name": "Select Chevron",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "chevron-down",
+                          "library": "lucide",
+                          "fill": "$muted"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sirVK",
+                  "name": "Field Message (optional)",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ykdVw",
+                      "name": "Label",
+                      "fill": "$text",
+                      "content": "Message (optional)",
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Z7Jvja",
+                      "name": "Input",
+                      "width": "fill_container",
+                      "fill": "$bg",
+                      "cornerRadius": 10,
+                      "stroke": "$border",
+                      "strokeWidth": 1,
+                      "padding": [
+                        10,
+                        12
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "YjIgv",
+                          "name": "Value",
+                          "fill": "$muted",
+                          "content": "Stay strong!",
+                          "fontFamily": "$font",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "cjJJC",
+                  "name": "Submit",
+                  "width": "fill_container",
+                  "fill": "$accent",
+                  "cornerRadius": 12,
+                  "padding": [
+                    12,
+                    0
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "u8EEW",
+                      "name": "Submit Label",
+                      "fill": "#FFFFFF",
+                      "content": "Donate MMK 50,000",
+                      "fontFamily": "$font",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "P2g7Gt",
+                  "name": "Disclaimer",
+                  "fill": "$muted",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Demo only — no real payment is processed.",
+                  "textAlign": "center",
+                  "fontFamily": "$font",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "h6Uao6",
+          "name": "Responders",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            48,
+            64
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "mV0rN",
+              "name": "Responders Title",
+              "fill": "$text",
+              "content": "For responders",
+              "fontFamily": "$font",
+              "fontSize": 20,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "hRUUo",
+              "name": "Responders Row",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "RGWxt",
+                  "name": "Role Dispatcher",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": 14,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "pcXKe",
+                      "name": "Role Icon",
+                      "width": 20,
+                      "height": 20,
+                      "icon": "radio-tower",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "text",
+                      "id": "m9KGkA",
+                      "name": "Role Title",
+                      "fill": "$text",
+                      "content": "Dispatcher",
+                      "fontFamily": "$font",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "psir1",
+                      "name": "Role Desc",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Take calls, triage and dispatch the right ambulance.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Tqlth",
+                  "name": "Role Hospital staff",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": 14,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "C9s6F",
+                      "name": "Role Icon",
+                      "width": 20,
+                      "height": 20,
+                      "icon": "building-2",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "text",
+                      "id": "W3YLt",
+                      "name": "Role Title",
+                      "fill": "$text",
+                      "content": "Hospital staff",
+                      "fontFamily": "$font",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "zuWRE",
+                      "name": "Role Desc",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Update beds, ICU and ER queue in real time.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "s9NEP",
+                  "name": "Role Ambulance crew",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": 14,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "GE5Vm",
+                      "name": "Role Icon",
+                      "width": 20,
+                      "height": 20,
+                      "icon": "ambulance",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jLRFy",
+                      "name": "Role Title",
+                      "fill": "$text",
+                      "content": "Ambulance crew",
+                      "fontFamily": "$font",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "F0Hu1i",
+                      "name": "Role Desc",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "See your mission, patient and destination.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ZBARW",
+                  "name": "Role History",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": 14,
+                  "stroke": "$border",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 18,
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "g1EU5E",
+                      "name": "Role Icon",
+                      "width": 20,
+                      "height": 20,
+                      "icon": "history",
+                      "library": "lucide",
+                      "fill": "$accent"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y1psqd",
+                      "name": "Role Title",
+                      "fill": "$text",
+                      "content": "History",
+                      "fontFamily": "$font",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "DMUbb",
+                      "name": "Role Desc",
+                      "fill": "$muted",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Review past incidents and outcomes.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "HCIpW",
+          "name": "Footer",
+          "width": "fill_container",
+          "stroke": "$border",
+          "strokeWidth": 1,
+          "padding": [
+            24,
+            64
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "I9XIa",
+              "name": "Footer Left",
+              "fill": "$muted",
+              "content": "MediRoute — Hackathon UIT Group H",
+              "fontFamily": "$font",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "HDiha",
+              "name": "Footer Right",
+              "fill": "$muted",
+              "content": "Demo data · No real payments",
+              "fontFamily": "$font",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "themes": {
+    "mode": [
+      "light",
+      "dark"
+    ]
+  },
+  "variables": {
+    "bg": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#F6FBFB",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#172A3A",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "surface": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFFFF",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#1F3648",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "aqua": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#D6F3F4",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#22404F",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "accent": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#508991",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#74B3CE",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "accent-deep": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#004346",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#8FC5DC",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "text": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#172A3A",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#EAF6F7",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "muted": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#4C6B77",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#9FBECD",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "border": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#DCEBED",
+          "theme": {
+            "mode": "light"
+          }
+        },
+        {
+          "value": "#2C4A5C",
+          "theme": {
+            "mode": "dark"
+          }
+        }
+      ]
+    },
+    "success": {
+      "type": "color",
+      "value": "#178A50"
+    },
+    "success-soft": {
+      "type": "color",
+      "value": "#DDF3E7"
+    },
+    "warning": {
+      "type": "color",
+      "value": "#B45309"
+    },
+    "warning-soft": {
+      "type": "color",
+      "value": "#FCEFD9"
+    },
+    "danger": {
+      "type": "color",
+      "value": "#C0392B"
+    },
+    "danger-soft": {
+      "type": "color",
+      "value": "#FBE3DF"
+    },
+    "font": {
+      "type": "string",
+      "value": "Geist"
+    },
+    "font-mono": {
+      "type": "string",
+      "value": "Geist Mono"
+    }
+  },
+  "fileToken": "835aa00c-9fb1-4c46-8363-4c35d76eccac"
+}

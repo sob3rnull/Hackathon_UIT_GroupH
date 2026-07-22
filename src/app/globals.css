@@ -8,18 +8,26 @@
  * Change --accent (and its dark counterpart) and the whole app rebrands:
  * buttons, focus rings, links, badges and the hero glow all read from it.
  */
+/*
+ * Hospital palette: #D6F3F4 aqua, #74B3CE sky, #508991 teal, #004346 deep
+ * teal, #172A3A navy — mapped onto the same token system in OKLCH.
+ */
 :root {
-  --background: oklch(0.985 0.003 264);
+  --background: oklch(0.982 0.008 200);
   --surface: oklch(1 0 0);
-  --surface-muted: oklch(0.968 0.004 264);
-  --foreground: oklch(0.21 0.02 264);
-  --muted: oklch(0.53 0.016 264);
-  --border: oklch(0.912 0.007 264);
+  --surface-muted: oklch(0.955 0.017 200);
+  --foreground: oklch(0.26 0.037 248);
+  --muted: oklch(0.5 0.035 220);
+  --border: oklch(0.905 0.02 200);
 
-  --accent: oklch(0.55 0.19 264);
-  --accent-hover: oklch(0.49 0.19 264);
+  /* #508991, deepened a step so white text passes AA. */
+  --accent: oklch(0.5 0.07 205);
+  --accent-hover: oklch(0.42 0.065 200);
   --accent-foreground: oklch(0.99 0 0);
-  --accent-soft: oklch(0.95 0.03 264);
+  /* #D6F3F4 */
+  --accent-soft: oklch(0.943 0.026 200);
+  /* #004346 — full-bleed bands like the donate section. */
+  --accent-deep: oklch(0.335 0.055 197);
 
   --success: oklch(0.6 0.14 155);
   --warning: oklch(0.72 0.15 75);
@@ -29,17 +37,20 @@
 }
 
 .dark {
-  --background: oklch(0.17 0.012 264);
-  --surface: oklch(0.213 0.014 264);
-  --surface-muted: oklch(0.253 0.016 264);
-  --foreground: oklch(0.95 0.006 264);
-  --muted: oklch(0.685 0.018 264);
-  --border: oklch(0.315 0.017 264);
+  /* #172A3A */
+  --background: oklch(0.24 0.035 248);
+  --surface: oklch(0.28 0.035 242);
+  --surface-muted: oklch(0.32 0.037 236);
+  --foreground: oklch(0.95 0.01 200);
+  --muted: oklch(0.7 0.035 220);
+  --border: oklch(0.37 0.038 232);
 
-  --accent: oklch(0.68 0.16 264);
-  --accent-hover: oklch(0.74 0.15 264);
-  --accent-foreground: oklch(0.17 0.02 264);
-  --accent-soft: oklch(0.29 0.05 264);
+  /* #74B3CE */
+  --accent: oklch(0.727 0.062 227);
+  --accent-hover: oklch(0.78 0.06 224);
+  --accent-foreground: oklch(0.24 0.035 248);
+  --accent-soft: oklch(0.34 0.05 220);
+  --accent-deep: oklch(0.31 0.05 200);
 
   --success: oklch(0.72 0.15 155);
   --warning: oklch(0.79 0.15 75);
@@ -58,6 +69,7 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-deep: var(--accent-deep);
 
   --color-success: var(--success);
   --color-warning: var(--warning);

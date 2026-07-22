@@ -44,6 +44,8 @@ export interface Hospital {
   id: string;
   name: string;
   short_name: string;
+  /** Public-facing blurb for the directory page. May be empty on old rows. */
+  description: string;
   lat: number;
   lng: number;
   specialties: string[];
@@ -144,6 +146,25 @@ export interface Recommendation {
    * Total time to definitive care is response + transport, not either alone.
    */
   origin: LatLng;
+}
+
+/* ── Donations (public page; demo flow, no payment processing) ─────────── */
+
+export interface Donation {
+  id: string;
+  /** Null means the general fund rather than a specific hospital. */
+  hospital_id: string | null;
+  donor_name: string;
+  amount: number;
+  message: string;
+  created_at: string;
+}
+
+export interface DonationSummary {
+  /** Recent donations, newest first. */
+  donations: Donation[];
+  /** Running totals keyed by hospital id. */
+  totals: Record<string, { total: number; count: number }>;
 }
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
