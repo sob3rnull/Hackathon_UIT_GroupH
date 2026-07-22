@@ -23,8 +23,6 @@ export const env = {
   supabaseUrl: url,
   supabaseAnonKey: anonKey,
   supabaseServiceKey: serviceKey,
-  /** Table the store reads and writes. Rename alongside your entity. */
-  table: process.env.SUPABASE_TABLE ?? "items",
 };
 
 /** True once a URL + anon key are present. Drives the "Demo data" badge. */

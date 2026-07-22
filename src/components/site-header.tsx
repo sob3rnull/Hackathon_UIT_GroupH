@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Database, HardDrive } from "lucide-react";
 import { project } from "@/config/project";
-import { storeMode } from "@/lib/store";
+import { storeMode } from "@/lib/mediroute/store";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 

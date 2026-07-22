@@ -1,7 +1,13 @@
 import "server-only";
 
+import { isSupabaseConfigured } from "@/lib/env";
 import { createDataClient } from "@/lib/supabase/server";
 import type { Ambulance, AmbulanceStatus, Hospital } from "./types";
+
+/** Powers the "Demo data" / "Supabase" badge in the header. */
+export function storeMode(): "supabase" | "memory" {
+  return isSupabaseConfigured ? "supabase" : "memory";
+}
 
 /**
  * The only module that touches storage for MediRoute.
