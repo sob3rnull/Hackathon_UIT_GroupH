@@ -14,8 +14,11 @@ import { describeHospital } from "@/lib/mediroute/describe";
 import { useDonations } from "@/lib/mediroute/use-donations";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import {
+  myanmarBanks,
+  myanmarPhonePattern,
   paymentMethodLabel,
   paymentMethods,
+  walletMethods,
   type ApiResult,
   type Donation,
   type Hospital,
@@ -99,10 +102,17 @@ export function HospitalDirectory() {
   const [hospitalId, setHospitalId] = React.useState("");
   const [message, setMessage] = React.useState("");
   const [method, setMethod] = React.useState<PaymentMethod>("kbz_pay");
-  // Card fields are purely visual — they are never sent and never stored.
+  /** Wallet phone — the only payer detail that is actually recorded. */
+  const [payerPhone, setPayerPhone] = React.useState("");
+  // Everything below is purely visual — never sent and never stored.
+  const [bank, setBank] = React.useState<string>(myanmarBanks[0]);
+  const [accountNumber, setAccountNumber] = React.useState("");
+  const [cardName, setCardName] = React.useState("");
   const [cardNumber, setCardNumber] = React.useState("");
   const [cardExpiry, setCardExpiry] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
+
+  const isWallet = walletMethods.includes(method);
 
   const pickHospital = (id: string) => {
     setHospitalId(id);
@@ -120,8 +130,20 @@ export function HospitalDirectory() {
       toast({ tone: "danger", title: "Please enter a valid amount" });
       return;
     }
+    if (isWallet && !myanmarPhonePattern.test(payerPhone.replace(/[\s-]/g, ""))) {
+      toast({
+        tone: "danger",
+        title: "Enter the wallet's phone number",
+        description: "Myanmar mobile format, e.g. 09 7700 1122",
+      });
+      return;
+    }
     if (method === "card" && cardNumber.replace(/\D/g, "").length < 12) {
       toast({ tone: "danger", title: "Please enter a valid card number" });
+      return;
+    }
+    if (method === "bank_transfer" && accountNumber.replace(/\D/g, "").length < 6) {
+      toast({ tone: "danger", title: "Please enter the account number" });
       return;
     }
 
@@ -136,6 +158,7 @@ export function HospitalDirectory() {
           amount: value,
           message,
           payment_method: method,
+          payer_phone: isWallet ? payerPhone.replace(/[\s-]/g, "") : "",
         }),
       });
       const result: ApiResult<Donation> = await response.json();
@@ -149,6 +172,9 @@ export function HospitalDirectory() {
       });
       setAmount("");
       setMessage("");
+      setPayerPhone("");
+      setAccountNumber("");
+      setCardName("");
       setCardNumber("");
       setCardExpiry("");
       void donations.reload();
@@ -292,8 +318,69 @@ export function HospitalDirectory() {
                   </div>
                 </div>
 
+                {isWallet ? (
+                  <Field
+                    label={`${paymentMethodLabel[method]} phone number`}
+                    htmlFor="payer-phone"
+                    hint="The Myanmar mobile number the wallet is registered to."
+                  >
+                    <Input
+                      id="payer-phone"
+                      type="tel"
+                      inputMode="tel"
+                      value={payerPhone}
+                      onChange={(e) => setPayerPhone(e.target.value)}
+                      placeholder="09 7700 1122"
+                      maxLength={15}
+                      required
+                    />
+                  </Field>
+                ) : null}
+
+                {method === "bank_transfer" ? (
+                  <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
+                    <Field label="Bank" htmlFor="bank-name">
+                      <Select
+                        id="bank-name"
+                        value={bank}
+                        onChange={(e) => setBank(e.target.value)}
+                      >
+                        {myanmarBanks.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <Field label="Account number" htmlFor="account-number">
+                      <Input
+                        id="account-number"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                        placeholder="123 456 789 012"
+                        maxLength={24}
+                      />
+                    </Field>
+                    <p className="text-xs text-muted">
+                      Demo — bank details never leave this page and are not stored.
+                    </p>
+                  </div>
+                ) : null}
+
                 {method === "card" ? (
                   <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
+                    <Field label="Name on card" htmlFor="card-name">
+                      <Input
+                        id="card-name"
+                        autoComplete="off"
+                        value={cardName}
+                        onChange={(e) => setCardName(e.target.value)}
+                        placeholder="DAW AYE AYE"
+                        maxLength={60}
+                      />
+                    </Field>
                     <Field label="Card number" htmlFor="card-number">
                       <Input
                         id="card-number"

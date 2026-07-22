@@ -170,6 +170,29 @@ export const paymentMethodLabel: Record<PaymentMethod, string> = {
   card: "Credit / Visa card",
 };
 
+/** Wallet methods are registered to a Myanmar mobile number (09…). */
+export const walletMethods: readonly PaymentMethod[] = [
+  "kbz_pay",
+  "aya_pay",
+  "wave_money",
+  "cb_pay",
+];
+
+/** Myanmar mobile numbers: 09 + 7–9 digits. */
+export const myanmarPhonePattern = /^09\d{7,9}$/;
+
+/** For the bank-transfer picker. Display only — nothing is charged. */
+export const myanmarBanks = [
+  "KBZ Bank",
+  "AYA Bank",
+  "CB Bank",
+  "Yoma Bank",
+  "MAB Bank",
+  "UAB Bank",
+  "AGD Bank",
+  "A Bank",
+] as const;
+
 export interface Donation {
   id: string;
   /** Null means the general fund rather than a specific hospital. */
@@ -179,6 +202,8 @@ export interface Donation {
   message: string;
   /** One of paymentMethods; empty string on rows from before the field. */
   payment_method: string;
+  /** Wallet/contact number for wallet methods; empty otherwise. */
+  payer_phone: string;
   created_at: string;
 }
 
