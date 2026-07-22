@@ -194,6 +194,17 @@ dispatcher intake card. Seed Burmese medical-clause examples live in
 [`training/burmese-patient-situations.jsonl`](training/burmese-patient-situations.jsonl);
 the schema and labeling notes are in [`training/README.md`](training/README.md).
 
+Dictation itself also has two paths (`src/lib/mediroute/transcribe.ts`), best
+available wins and the intake card says which is active:
+
+- **Server Whisper** — set `OPENAI_API_KEY` (whisper-1) or `GROQ_API_KEY`
+  (whisper-large-v3, free tier, strong Burmese). The mic records locally and
+  posts the clip to `/api/transcribe`; works in any browser and on filtered
+  venue wifi.
+- **Browser SpeechRecognition** — no key needed, Chrome/Edge only, and it
+  streams to the browser vendor's speech service, so it fails with
+  "Speech service unreachable" on Brave, VPNs and blocked networks.
+
 **2. Ranking** (`src/lib/mediroute/engine.ts`) — pure function, no I/O, no clock.
 
 ```

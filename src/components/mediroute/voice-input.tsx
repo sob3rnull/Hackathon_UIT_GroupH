@@ -2,22 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Languages, Mic, Square } from "lucide-react";
+import { Spinner } from "@/components/ui/states";
 import { cn } from "@/lib/utils";
+import type { ApiResult } from "@/lib/mediroute/types";
 
 /**
- * Voice capture for the paramedic note, using the browser's built-in
- * SpeechRecognition. No SDK, no API key, no cost.
+ * Voice capture for the paramedic note. Two capture paths, best available
+ * wins, and the UI always says which one is in use:
  *
- * Two honest limitations, both surfaced in the UI rather than hidden:
- *  1. Chrome/Edge only. Firefox and most mobile browsers don't implement it,
- *     so the button hides itself and typing remains the primary path.
- *  2. It streams audio to the browser vendor's servers — so unlike the rest of
- *     MediRoute, this feature does NOT work offline. If venue wifi dies, voice
- *     dies with it. Typing is the fallback, and it always stays visible.
+ *  1. Server transcription (preferred when a key is configured): records the
+ *     mic with MediaRecorder and posts the clip to /api/transcribe, which
+ *     runs Whisper. Works in any browser and on networks where the built-in
+ *     speech service is blocked; Burmese quality is much better.
+ *  2. Browser SpeechRecognition (fallback, Chrome/Edge only): streams audio
+ *     to the browser vendor's servers, live interim results, but dies with
+ *     "network" on Brave, VPNs and filtered venue wifi.
  *
- * Real deployment on an in-ambulance device would want an on-device model
- * (noisy cabin, no connectivity, and clinical audio shouldn't leave the
- * vehicle) — that's a hardware decision, not a browser one.
+ * Typing always stays visible below — it is the path of last resort and the
+ * only one that works fully offline.
  */
 
 /* Minimal typings — SpeechRecognition isn't in TS's DOM lib. */
@@ -63,6 +65,15 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+function pickRecorderMime(): string | undefined {
+  if (typeof MediaRecorder === "undefined") return undefined;
+  return ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((type) =>
+    MediaRecorder.isTypeSupported(type),
+  );
+}
+
+type CapturePath = "checking" | "server" | "browser" | "none";
+
 export function VoiceInput({
   onTranscript,
   onListeningChange,
@@ -73,25 +84,130 @@ export function VoiceInput({
   onListeningChange?: (listening: boolean) => void;
   disabled?: boolean;
 }) {
-  const [supported, setSupported] = useState(false);
+  const [path, setPath] = useState<CapturePath>("checking");
   const [listening, setListening] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [language, setLanguage] = useState<SpeechLanguage>("my-MM");
   const [error, setError] = useState<string | null>(null);
+
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const finalRef = useRef("");
 
   useEffect(() => {
-    // Browser capability check — can't run during render because the API is
-    // window-only and this component is server-rendered first.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSupported(getRecognitionCtor() !== null);
+    // Decide the capture path once: server transcription if the API has a
+    // key, else browser speech if this browser implements it, else typing.
+    let cancelled = false;
+    void (async () => {
+      let server = false;
+      try {
+        const response = await fetch("/api/transcribe");
+        const result: ApiResult<{ available: boolean }> = await response.json();
+        server = result.ok && result.data.available;
+      } catch {
+        // API unreachable — same as no key.
+      }
+      if (cancelled) return;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPath(server ? "server" : getRecognitionCtor() ? "browser" : "none");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const stopTracks = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  };
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
   }, []);
 
-  function start() {
+  // Never leave the mic open if the component unmounts mid-capture.
+  useEffect(
+    () => () => {
+      recognitionRef.current?.stop();
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      stopTracks();
+    },
+    [],
+  );
+
+  /* ── Path 1: record + server Whisper ─────────────────────────────────── */
+
+  async function startRecording() {
+    setError(null);
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError("Microphone permission denied");
+      return;
+    }
+
+    streamRef.current = stream;
+    chunksRef.current = [];
+    const recorder = new MediaRecorder(
+      stream,
+      pickRecorderMime() ? { mimeType: pickRecorderMime() } : undefined,
+    );
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunksRef.current.push(event.data);
+    };
+
+    recorder.onstop = () => {
+      stopTracks();
+      setListening(false);
+      onListeningChange?.(false);
+      const blob = new Blob(chunksRef.current, {
+        type: recorder.mimeType || "audio/webm",
+      });
+      chunksRef.current = [];
+      if (blob.size > 0) void upload(blob);
+    };
+
+    recorderRef.current = recorder;
+    recorder.start();
+    setListening(true);
+    onListeningChange?.(true);
+  }
+
+  async function upload(blob: Blob) {
+    setTranscribing(true);
+    try {
+      const form = new FormData();
+      const extension = blob.type.includes("mp4") ? "mp4" : "webm";
+      form.append("audio", blob, `note.${extension}`);
+      form.append("language", language === "my-MM" ? "my" : "en");
+
+      const response = await fetch("/api/transcribe", { method: "POST", body: form });
+      const result: ApiResult<{ text: string }> = await response.json();
+      if (!result.ok) throw new Error(result.error);
+      if (!result.data.text) {
+        setError("Nothing heard — try again closer to the microphone");
+        return;
+      }
+      onTranscript(result.data.text);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? `Transcription failed: ${cause.message}`
+          : "Transcription failed — type the note instead",
+      );
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  /* ── Path 2: browser SpeechRecognition ───────────────────────────────── */
+
+  function startBrowserSpeech() {
     const Ctor = getRecognitionCtor();
     if (!Ctor) return;
 
@@ -137,16 +253,22 @@ export function VoiceInput({
     onListeningChange?.(true);
   }
 
-  // Never leave the mic open if the component unmounts mid-capture.
-  useEffect(() => () => recognitionRef.current?.stop(), []);
+  const start = () => {
+    if (path === "server") void startRecording();
+    else startBrowserSpeech();
+  };
 
-  if (!supported) {
+  if (path === "checking") return null;
+
+  if (path === "none") {
     return (
       <p className="text-xs text-muted">
         Voice input needs Chrome or Edge — type the note instead.
       </p>
     );
   }
+
+  const busy = disabled || transcribing;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -160,7 +282,7 @@ export function VoiceInput({
               key={option.code}
               type="button"
               onClick={() => setLanguage(option.code)}
-              disabled={disabled || listening}
+              disabled={busy || listening}
               aria-pressed={language === option.code}
               className={cn(
                 "h-full px-3 text-xs font-medium transition-colors",
@@ -178,7 +300,7 @@ export function VoiceInput({
         <button
           type="button"
           onClick={listening ? stop : start}
-          disabled={disabled}
+          disabled={busy}
           className={cn(
             "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
             listening
@@ -187,7 +309,12 @@ export function VoiceInput({
             "disabled:pointer-events-none disabled:opacity-50",
           )}
         >
-          {listening ? (
+          {transcribing ? (
+            <>
+              <Spinner />
+              Transcribing…
+            </>
+          ) : listening ? (
             <>
               <Square className="size-3.5 fill-current" />
               Stop dictating
@@ -204,8 +331,17 @@ export function VoiceInput({
 
       {error ? <p className="text-xs text-danger">{error}</p> : null}
       {listening ? (
-        <p className="text-xs text-muted">Listening — speak the patient description.</p>
+        <p className="text-xs text-muted">
+          {path === "server"
+            ? "Recording — speak, then press stop to transcribe."
+            : "Listening — speak the patient description."}
+        </p>
       ) : null}
+      <p className="text-xs text-muted">
+        {path === "server"
+          ? "Transcribed on the server (Whisper) — works on any browser."
+          : "Uses the browser's speech service — needs Chrome/Edge and open internet."}
+      </p>
     </div>
   );
 }
