@@ -1,113 +1,145 @@
-# Hackathon Shell
+# MediRoute — AI-Assisted Emergency Hospital Routing
 
-A pre-built Next.js frame to drop tomorrow's topic into. Runs with **zero setup** —
-no keys, no database — and upgrades to Supabase by filling in `.env.local`.
+Recommends the best hospital for an incoming ambulance — not the *nearest*, but the
+nearest one that is actually **available and equipped** to treat this patient.
+
+Group H · UIT — 24-hour hackathon build.
 
 ```bash
-npm run dev     # http://localhost:3000
+npm install
+npm run dev        # http://localhost:3000
+npm test           # engine unit tests — run these before you trust a ranking
 ```
 
----
-
-## The 15-minute start
-
-Once the topic is announced, do these in order. Nothing else is required to have
-a working, demoable app.
-
-**1. Rename everything** — [`src/config/project.ts`](src/config/project.ts)
-
-Change `name`, `tagline`, `pitch`, `team`, and `entity`. The header, tab title,
-hero, form labels, buttons and empty states all read from this one file.
-
-**2. Reshape the record** — [`src/lib/types.ts`](src/lib/types.ts)
-
-`Item` is a placeholder with `title / notes / status`. Add your fields to the
-zod schema and the interface; TypeScript will then point you at every place
-that needs updating.
-
-**3. Add the topic logic** — [`src/app/api/items/route.ts`](src/app/api/items/route.ts)
-
-There's a marked spot in `POST` between validation and the write. Call your
-model, API, scraper or calculation there and persist the result.
-
-**4. Update the form** — [`src/components/workspace.tsx`](src/components/workspace.tsx)
-
-Add or remove `<Field>` blocks to match the new shape.
-
-**5. (Optional) Turn on Supabase** — see below.
+The app runs with **no configuration at all**: blank env vars give you an in-memory
+hospital store and keyword triage. Add keys to upgrade each piece independently.
 
 ---
 
-## Supabase — already connected
+## The two screens
 
-Wired to the team's Supabase project and verified: create, list and delete were
-all exercised against the live database. `.env.local` (gitignored) holds the URL
-and anon key; no service-role key is needed. Ask a teammate for the values, or
-copy them from the Supabase dashboard.
+| Route | Who | What |
+|---|---|---|
+| `/` | Dispatcher | Free-text intake → AI triage → ranked hospitals → override → dispatch |
+| `/hospital` | Hospital staff | Live capacity panel. **Run this on a second machine during the demo.** |
 
-Sanity check: `curl localhost:3000/api/health` → `{"store":"supabase"}`.
-The header badge shows the same thing at a glance.
-
-If the table changes shape for the topic, edit
-[`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), re-run
-it in the SQL editor, and update `SUPABASE_TABLE` in `.env.local` if you renamed
-it.
-
-> ⚠ **The RLS policy is wide open.** The app has no sign-in, so `items` grants
-> the anon role unconditional read/write — and the anon key ships in the browser
-> bundle. Anyone who opens devtools can read and write that table. That's an
-> accepted trade for demo data on a one-day build; Supabase's security linter
-> flags it deliberately. Don't put anything real in it, and replace the policy
-> with user-scoped rules if this outlives the hackathon.
-
-**The in-memory fallback is still there.** Blank the two env values and the app
-keeps working with seed data — worth remembering if the venue wifi dies or the
-project is paused mid-demo.
+Changes on `/hospital` re-rank `/` instantly over Supabase Realtime — no refresh, no
+socket server.
 
 ---
 
-## What's in the box
+## How a recommendation is produced
+
+**1. Triage** (`src/lib/mediroute/triage.ts`)
+
+Free-text paramedic note → `{ condition, severity, requiredSpecialty, needsICU,
+redFlags, confidence }`. Two paths, identical output shape:
+
+- **Claude** via structured outputs — schema-guaranteed, no JSON parsing.
+- **Keyword matcher** — used when `ANTHROPIC_API_KEY` is missing or the call fails.
+
+The UI always states which one ran. Fallback output is never presented as AI.
+`redFlags` carries the findings that drove the call, so the dispatcher can trace the
+decision back to the note.
+
+**2. Ranking** (`src/lib/mediroute/engine.ts`) — pure function, no I/O, no clock.
+
+```
+HARD FILTERS (excluded outright, with a reason shown)
+  · lacks the required specialty
+  · no available beds
+  · critical only: no specialist on duty, or no ICU bed when one is needed
+
+SCORE (every term normalized 0..1, higher is better)
+  travelScore = max(0, 1 - etaMinutes / 45)
+  bedScore    = availableBeds / totalBeds
+  doctorScore = min(specialistsOnDuty / 2, 1)
+  erLoadScore = 1 - currentERQueue / erCapacity
+
+WEIGHTS BY SEVERITY (each profile sums to 1)
+  critical  travel .50  beds .20  doctors .20  erLoad .10
+  urgent    travel .40  beds .25  doctors .20  erLoad .15
+  stable    travel .25  beds .30  doctors .15  erLoad .30
+```
+
+If nothing survives the critical-only filters, the engine relaxes them and raises a
+red banner rather than returning an empty list.
+
+> **Why travel is scored against a fixed 45-minute reference** rather than min-max
+> normalized across candidates: min-max divides by zero when only one hospital is
+> eligible, which happens in the mass-casualty case.
+
+**3. Dispatch** — the dispatcher accepts or overrides. `was_override` is derived
+server-side, so the agreement statistic can't be skewed by the client. It's reported
+as *dispatcher agreement*, never "accuracy" — there is no ground truth about which
+hospital was actually correct.
+
+---
+
+## Layout
 
 ```
 src/
-  config/project.ts        ← rename the product here, first thing
-  app/
-    layout.tsx             header, footer, no-flash dark mode
-    page.tsx               hero + highlights + workspace
-    globals.css            design tokens (change --accent to rebrand)
-    api/health/route.ts    curl-able status check
-    api/items/route.ts     ← topic logic goes here
-    api/items/[id]/route.ts
-  components/
-    workspace.tsx          the working create → list → delete slice
-    site-header.tsx        nav + store-mode badge + theme toggle
-    ui/                    button, card, field, badge, states
-  lib/
-    store.ts               ← the only file that touches storage
-    types.ts               zod schemas + Item type
-    env.ts                 env access, never throws
-    supabase/              browser + server + admin clients
-supabase/migrations/       SQL to paste into Supabase
+  lib/mediroute/
+    engine.ts        ← ranking: filters, scoring, weights (pure, tested)
+    engine.test.ts   ← 18 tests incl. the seeded demo scenario
+    triage.ts        ← Claude + keyword fallback
+    geo.ts           ← haversine + ETA
+    store.ts         ← the only module touching storage
+    use-hospitals.ts ← Realtime subscription, polls when Supabase is absent
+    types.ts         ← zod schemas + shared types
+  components/mediroute/
+    dispatcher.tsx   ← intake, triage panel, ranked list, override
+    hospital-panel.tsx
+    map.tsx          ← dependency-free SVG map
+  app/api/
+    triage · hospitals · hospitals/[id] · recommend · dispatch
+supabase/migrations/ ← schema + seed
 ```
-
-**Already handled so you don't spend time on it:** light/dark with no flash on
-load, focus rings, loading skeletons, empty states, error states with retry,
-optimistic delete, form validation on both sides, responsive layout,
-reduced-motion support.
 
 ---
 
-## Rebranding in one line
-
-Every colour derives from `--accent` in
-[`src/app/globals.css`](src/app/globals.css). Change it (and the `.dark`
-counterpart) and buttons, links, badges, focus rings and the hero glow all
-follow.
-
 ## Demo-day notes
 
-- `npm run build` before you present — catches type errors `dev` lets slide.
-- The `items` table is currently **empty**, so the app opens on its empty state.
-  Insert a few believable topic rows before you present so it never looks bare.
-- `seed()` in `src/lib/store.ts` only applies to the in-memory fallback, not to
-  Supabase.
+- **The map is deliberately not Mapbox.** Tile maps fetch at render time, so bad
+  venue wifi turns the panel into a grey box in front of judges, and they need a key
+  in the client bundle. `map.tsx` projects lat/lng into an SVG: no key, no network,
+  cannot fail on stage.
+- **Run `/hospital` on a second machine.** Alt-tabbing to edit your own data
+  undercuts the illusion that this is live inter-hospital state.
+- **Run `npm test` before presenting.** The engine tests assert that the nearest
+  hospital is *not* the recommendation in the seeded scenario. If that flips, the
+  demo's whole thesis is broken and you want to know in the room, not on stage.
+- **The offline path is real** — blank the env vars and everything still works with
+  seeded data and keyword triage. Try it once before demo day so you've seen it.
+
+### Seeded scenario (real Yangon hospitals)
+
+Incident at Sule Pagoda, critical cardiac patient needing ICU:
+
+| Hospital | ETA | Outcome |
+|---|---|---|
+| Yangon General | 3 min | **Excluded** — no available beds |
+| Yangon Children's | 5 min | **Excluded** — no cardiology service |
+| New Yangon General | 5 min | **Excluded** — no cardiologist on duty |
+| **Thingangyun Sanpya** | **15 min** | **Recommended** — 2 cardiologists, 4 ICU beds |
+| North Okkalapa | 38 min | Eligible, ranked second |
+| Insein | 37 min | **Excluded** — no cardiology service |
+
+The three closest hospitals all lose. That is the entire pitch, on one screen.
+
+---
+
+## Safety framing — say this out loud to judges
+
+This is a **decision-support prototype**. It has no clinical validation, no regulatory
+review, and uses no real patient data. It never auto-dispatches: the triage output is
+editable and the final routing is a human decision. What it demonstrates is that
+capacity-aware routing beats distance-only routing — not that it is deployable.
+
+> ⚠️ **The RLS policies are wide open.** No auth exists, so `hospitals` and
+> `dispatches` grant the anon role unconditional read/write, and the anon key ships in
+> the browser bundle. Fine for fictional demo data; replace before this outlives the
+> hackathon. Never put real patient information in this database.
+
+See [PLAN.md](PLAN.md) for the build plan, cut list, and judging Q&A prep.

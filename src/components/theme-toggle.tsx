@@ -11,6 +11,9 @@ export function ThemeToggle() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
+    // One-time sync with the DOM class the no-flash script in layout.tsx
+    // already applied — reading external state, not deriving it from props.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDark(document.documentElement.classList.contains("dark"));
   }, []);
 

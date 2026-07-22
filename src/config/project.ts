@@ -1,60 +1,42 @@
 /**
- * ─────────────────────────────────────────────────────────────
- *  START HERE ON HACKATHON DAY.
- *  Change this file first — the whole UI reads from it.
- *  Renaming the product, the tagline and the entity noun here
- *  re-labels the header, landing page, forms, empty states and
- *  page titles without touching a single component.
- * ─────────────────────────────────────────────────────────────
+ * Product-level copy in one place. Change it here and the header, tab title,
+ * hero and landing cards all follow.
  */
 export const project = {
-  /** Product name. Shows in the header, the tab title and the hero. */
-  name: "Hackathon Shell",
+  name: "MediRoute",
 
-  /** One line. Shows under the hero heading and in the meta description. */
-  tagline: "A pre-wired Next.js + Supabase shell, ready for tomorrow's topic.",
+  tagline:
+    "Routes ambulances to the hospital that can actually treat the patient — not just the closest one.",
 
-  /** Two or three sentences for the landing section / judges. */
   pitch:
-    "Swap the entity, point the store at a Supabase table, drop your topic logic into the API route. Everything else — layout, theming, forms, loading and empty states — is already done.",
+    "Emergency routing today optimizes for distance alone, so ambulances arrive to find no beds, no specialist on duty, or an overloaded ER. MediRoute reads the paramedic's own words, extracts structured triage, and ranks hospitals on live capacity plus travel time — showing its reasoning every step, with a dispatcher override always one click away.",
 
-  /** Team or author name shown in the footer. */
-  team: "Your team",
+  team: "Group H · UIT",
 
-  /**
-   * The core noun of your project. Rename this and every label follows:
-   * "Add Item" → "Add Recipe", "No items yet" → "No recipes yet", etc.
-   */
   entity: {
-    singular: "Item",
-    plural: "Items",
-    /** Lowercase forms used mid-sentence. */
-    singularLower: "item",
-    pluralLower: "items",
+    singular: "Dispatch",
+    plural: "Dispatches",
+    singularLower: "dispatch",
+    pluralLower: "dispatches",
   },
 
-  /** Top-nav links. Add routes here as you build pages. */
   nav: [
-    { href: "/", label: "Home" },
-    { href: "/#workspace", label: "Workspace" },
+    { href: "/", label: "Dispatcher" },
+    { href: "/hospital", label: "Hospital panel" },
   ],
 
-  /**
-   * Three cards on the landing page. Replace with your actual
-   * value props once you know the topic.
-   */
   highlights: [
     {
-      title: "Capture",
-      body: "A working create form wired end to end — client → API route → store.",
+      title: "Understands the note",
+      body: "Paramedics type in plain language. Claude extracts condition, severity and required specialty, and shows the findings that drove the call.",
     },
     {
-      title: "Store",
-      body: "Runs in memory with zero setup, or against Supabase the moment you add keys.",
+      title: "Ranks on live capacity",
+      body: "Hard-filters hospitals that cannot treat this patient, then scores the rest on travel time, beds, specialists on duty and ER load.",
     },
     {
-      title: "Show",
-      body: "Styled list, loading skeletons, empty and error states already handled.",
+      title: "Explains and defers",
+      body: "Every recommendation carries its reasoning and score breakdown. The dispatcher can override any of it, and nothing auto-dispatches.",
     },
   ],
 } as const;

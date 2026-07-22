@@ -44,6 +44,8 @@ export function Workspace() {
   }, []);
 
   useEffect(() => {
+    // load() is async — setState runs after the fetch resolves, not here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
