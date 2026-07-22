@@ -20,10 +20,40 @@ export const project = {
     pluralLower: "dispatches",
   },
 
+  /**
+   * One screen per role. There is no sign-in yet, so the route *is* the role —
+   * when auth lands, each of these becomes a permission instead of a link.
+   */
   nav: [
-    { href: "/", label: "Dispatcher" },
-    { href: "/fleet", label: "Fleet" },
-    { href: "/hospital", label: "Hospital panel" },
+    {
+      href: "/dispatcher",
+      label: "Dispatcher",
+      role: "119 call taker",
+      blurb: "Take the call, run triage, choose the ambulance and the hospital.",
+    },
+    {
+      href: "/hospital",
+      label: "Hospital",
+      role: "Hospital staff",
+      blurb: "Keep beds, ICU and ER queue current so routing stays honest.",
+    },
+    {
+      href: "/ambulance",
+      label: "Ambulance",
+      role: "Crew on board",
+      blurb: "See the mission, the patient and the destination. Advance status.",
+    },
+    {
+      href: "/history",
+      label: "History",
+      role: "Everyone",
+      blurb: "Every past incident, searchable, with what was recommended.",
+    },
+  ],
+
+  /** Operational tooling — reachable, but kept out of the role menu. */
+  secondaryNav: [
+    { href: "/fleet", label: "Fleet ops", blurb: "On-board device simulator" },
   ],
 
   highlights: [

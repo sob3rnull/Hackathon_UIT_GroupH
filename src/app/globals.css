@@ -106,4 +106,21 @@
       transparent 70%
     );
   }
+
+  /* Toasts slide up as they arrive. The reduced-motion rule in @layer base
+     collapses the duration, so this stays a fade for anyone who asked. */
+  @keyframes toast-enter {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .toast-enter {
+    animation: toast-enter 180ms ease-out;
+  }
 }
