@@ -48,23 +48,19 @@ export function createAdminClient() {
 }
 
 /**
- * Server-side client using the public key — no cookies, no session.
- * Subject to RLS, so the table's policies decide what it can do.
+ * What `@/lib/mediroute/store` actually uses.
+ *
+ * Deliberately the COOKIE-AWARE client, not the service-role one: it carries
+ * the signed-in user's JWT, so the RLS policies in migration 0007 are what
+ * actually decide who may read and write. Using the admin key here would
+ * silently bypass every policy and make them decorative.
+ *
+ * Returns null only when Supabase isn't configured at all, which is the
+ * signal to use the in-memory store.
+ *
+ * Trusted server jobs that legitimately have no user session (seeding, n8n
+ * webhooks) should call `createAdminClient()` explicitly and say why.
  */
-function createAnonClient() {
-  if (!isSupabaseConfigured) return null;
-
-  return createSupabaseClient(env.supabaseUrl, env.supabaseAnonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
-/**
- * What `@/lib/store` actually uses. Prefers the service-role key when it's
- * present (bypasses RLS), otherwise falls back to the public key and lets
- * RLS policies govern access. Returns null only when Supabase isn't
- * configured at all, which is the signal to use the in-memory store.
- */
-export function createDataClient() {
-  return createAdminClient() ?? createAnonClient();
+export async function createDataClient() {
+  return createClient();
 }
