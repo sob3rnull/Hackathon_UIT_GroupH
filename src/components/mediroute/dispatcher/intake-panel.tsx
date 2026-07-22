@@ -1,6 +1,6 @@
 "use client";
 
-import { Ambulance, Sparkles } from "lucide-react";
+import { Ambulance, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Textarea } from "@/components/ui/field";
@@ -8,24 +8,23 @@ import { Spinner } from "@/components/ui/states";
 import { VoiceInput } from "@/components/mediroute/voice-input";
 
 /**
- * Step one of the run: what the caller said. Dictation and typing write to the
- * same field, so triage cannot tell them apart — only the stored input_mode
- * records which was used.
+ * The whole of the call-taking step: what the caller said, and where. No
+ * triage happens here — selectAmbulance() only needs the incident location,
+ * so there's nothing for the dispatcher to extract before ranking the fleet.
+ * Triage runs on the crew's own screen once they're assigned.
  */
 export function IntakePanel({
   note,
   onNoteChange,
   onModeChange,
-  onRunTriage,
-  triaging,
-  aiAvailable,
+  onFindAmbulances,
+  finding,
 }: {
   note: string;
   onNoteChange: (note: string) => void;
   onModeChange: (mode: "text" | "voice") => void;
-  onRunTriage: () => void;
-  triaging: boolean;
-  aiAvailable: boolean | null;
+  onFindAmbulances: () => void;
+  finding: boolean;
 }) {
   return (
     <Card>
@@ -35,14 +34,14 @@ export function IntakePanel({
           119 call intake
         </CardTitle>
         <CardDescription>
-          Dictate or type what the caller reports. Click the map below to set
-          the incident location.
+          Log what the caller reports. Click the map below to set the
+          incident location, then find a vehicle to send.
         </CardDescription>
       </CardHeader>
 
       <CardBody className="flex flex-col gap-4">
         <VoiceInput
-          disabled={triaging}
+          disabled={finding}
           onListeningChange={(listening) => {
             if (listening) {
               onNoteChange("");
@@ -65,16 +64,10 @@ export function IntakePanel({
           />
         </Field>
 
-        <Button onClick={onRunTriage} disabled={triaging || note.trim().length < 3}>
-          {triaging ? <Spinner /> : <Sparkles className="size-4" />}
-          {triaging ? "Triaging…" : "Run triage"}
+        <Button onClick={onFindAmbulances} disabled={finding || note.trim().length < 3}>
+          {finding ? <Spinner /> : <Search className="size-4" />}
+          {finding ? "Finding…" : "Find ambulances"}
         </Button>
-
-        {aiAvailable === false ? (
-          <p className="text-xs text-warning">
-            No <code>ANTHROPIC_API_KEY</code> set — using the keyword fallback.
-          </p>
-        ) : null}
       </CardBody>
     </Card>
   );

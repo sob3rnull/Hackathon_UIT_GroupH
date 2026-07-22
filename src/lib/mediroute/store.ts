@@ -290,15 +290,28 @@ export async function createDispatch(input: DispatchInput): Promise<DispatchRow>
   return data as DispatchRow;
 }
 
-export type DispatchHospitalPatch = Pick<
+/**
+ * What the crew fills in that the dispatcher's assign-time write couldn't
+ * know: the actual triage (run on their own screen, not the dispatcher's)
+ * and, once ranked against it, the hospital they're taking the patient to.
+ * One write, since both happen in the same sitting.
+ */
+export type DispatchConfirmPatch = Pick<
   DispatchRow,
-  "hospital_id" | "recommended_hospital_id" | "eta_minutes" | "was_override"
+  | "condition"
+  | "severity"
+  | "required_specialty"
+  | "needs_icu"
+  | "hospital_id"
+  | "recommended_hospital_id"
+  | "eta_minutes"
+  | "was_override"
 >;
 
-/** The crew's hospital pick, applied once — on top of the row assignAmbulance created. */
+/** The crew's confirmation, applied once — on top of the row assignAmbulance created. */
 export async function updateDispatch(
   id: string,
-  patch: DispatchHospitalPatch,
+  patch: DispatchConfirmPatch,
 ): Promise<DispatchRow> {
   const db = createDataClient();
 

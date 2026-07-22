@@ -50,24 +50,36 @@ export async function runTriage(note: string): Promise<TriageResponse> {
 }
 
 /**
- * Ranked ambulances for an incident. The dispatcher's whole job is this list
- * plus a pick — hospital ranking happens later, on the crew's own screen.
- *
- * Locally this is a dedicated endpoint that doesn't need triage at all. n8n
- * only exposes the combined /mediroute/plan webhook, so there the same call
- * that would answer a full plan is made and only its `fleet` half is kept —
- * one extra hospital-ranking computation on n8n's side, discarded here, which
- * is cheaper than standing up a second n8n webhook for a subset of a call
- * that already exists.
+ * A neutral stand-in for the n8n /mediroute/plan contract, which requires a
+ * triage object in its body. selectAmbulance() never reads it — fleet
+ * ranking only needs the incident location — so the dispatcher, who no
+ * longer runs triage at all, has nothing real to put here. Never shown to a
+ * user; exists purely to satisfy an API shape that predates this split.
  */
-export async function getFleetPlan(
-  triage: Triage,
-  incident: LatLng,
-): Promise<AmbulanceSelection> {
+const NEUTRAL_TRIAGE: Triage = {
+  condition: "general",
+  severity: "urgent",
+  requiredSpecialty: "general",
+  needsICU: false,
+  redFlags: [],
+  confidence: 0,
+};
+
+/**
+ * Ranked ambulances for an incident. The dispatcher's whole job is this list
+ * plus a pick — triage and hospital ranking both happen later, on the crew's
+ * own screen, which is why this takes no triage argument.
+ *
+ * Locally this is a dedicated endpoint that never needed triage. n8n only
+ * exposes the combined /mediroute/plan webhook, so there the same call that
+ * would answer a full plan is made (with NEUTRAL_TRIAGE, since the webhook
+ * requires something) and only its `fleet` half is kept.
+ */
+export async function getFleetPlan(incident: LatLng): Promise<AmbulanceSelection> {
   if (N8N_BASE) {
     const plan = await postJson<{ fleet: AmbulanceSelection }>(
       `${N8N_BASE}/mediroute/plan`,
-      { triage, incident },
+      { triage: NEUTRAL_TRIAGE, incident },
     );
     return plan.fleet;
   }
@@ -95,10 +107,6 @@ export async function getHospitalPlan(
 export interface AssignAmbulancePayload {
   ambulance_id: string;
   patient_note: string;
-  condition: string;
-  severity: string;
-  required_specialty: string;
-  needs_icu: boolean;
   response_eta_minutes: number;
   incident_lat: number;
   incident_lng: number;
@@ -107,33 +115,52 @@ export interface AssignAmbulancePayload {
 
 /**
  * The dispatcher's one write: picks a vehicle, creates the dispatch record
- * with no hospital yet. Marks the ambulance "dispatched" server-side so it
- * drops out of the available pool immediately.
+ * with no hospital and no real triage yet — the dispatcher never runs
+ * triage, so there's nothing true to put in those columns. They get
+ * DB-schema-matching placeholders here (explicit, not left to whichever
+ * backend's own defaulting happens to kick in) and real values once the
+ * crew confirms. Marks the ambulance "dispatched" server-side so it drops
+ * out of the available pool immediately.
  */
 export async function assignAmbulance(
   payload: AssignAmbulancePayload,
 ): Promise<DispatchRecord> {
   return postJson<DispatchRecord>(
     N8N_BASE ? `${N8N_BASE}/mediroute/dispatch` : "/api/dispatch",
-    { ...payload, hospital_id: null, recommended_hospital_id: null, eta_minutes: 0 },
+    {
+      ...payload,
+      hospital_id: null,
+      recommended_hospital_id: null,
+      eta_minutes: 0,
+      condition: "general",
+      severity: "urgent",
+      required_specialty: "general",
+      needs_icu: false,
+    },
   );
 }
 
-export interface ChooseHospitalPayload {
+export interface ConfirmMissionPayload {
   dispatch_id: string;
+  condition: string;
+  severity: string;
+  required_specialty: string;
+  needs_icu: boolean;
   hospital_id: string;
   recommended_hospital_id: string | null;
   eta_minutes: number;
 }
 
-/** The crew's write: fills in the hospital on the row assignAmbulance created. */
-export async function chooseHospital(
-  payload: ChooseHospitalPayload,
+/**
+ * The crew's one write: the triage they ran themselves, and the hospital
+ * they picked against it. Fills in everything assignAmbulance left as a
+ * placeholder, on the same row.
+ */
+export async function confirmMission(
+  payload: ConfirmMissionPayload,
 ): Promise<DispatchRecord> {
   return postJson<DispatchRecord>(
-    N8N_BASE
-      ? `${N8N_BASE}/mediroute/dispatch/choose-hospital`
-      : "/api/dispatch/choose-hospital",
+    N8N_BASE ? `${N8N_BASE}/mediroute/dispatch/confirm` : "/api/dispatch/confirm",
     payload,
   );
 }

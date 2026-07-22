@@ -9,7 +9,7 @@ export default function DispatcherPage() {
     <PageShell wide>
       <PageHeader
         title="Dispatch console"
-        description="Take the call, confirm the triage, and send the right vehicle to the hospital that can actually treat this patient. The system recommends — you decide."
+        description="Take the call and send the nearest dispatchable ambulance. Triage and the hospital pick happen on the crew's own tablet once they're rolling."
       />
       <Dispatcher />
     </PageShell>

@@ -17,9 +17,11 @@ import {
 export type TriageSource = "claude" | "keyword" | "manual" | null;
 
 /**
- * What the AI read out of the description, and the dispatcher's chance to
- * disagree with it. Editing any field re-plans immediately and re-labels the
- * source as "manual" — the record shows who actually made the call.
+ * What the AI read out of the description, and the crew's chance to disagree
+ * with it. Editing any field re-labels the source as "manual" — the record
+ * shows who actually made the call. Runs on the Ambulance page, not the
+ * dispatcher's screen: selectAmbulance() never needed this, so it never made
+ * sense to extract it before a vehicle was even picked.
  */
 export function TriageSummary({
   triage,
@@ -34,7 +36,7 @@ export function TriageSummary({
 }) {
   if (!triage) {
     return (
-      <Card className="h-full">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Stethoscope className="size-4" />
@@ -48,7 +50,7 @@ export function TriageSummary({
           <EmptyState
             icon={<Stethoscope className="size-6" />}
             title="No triage yet"
-            body="Describe the patient on the left, then run triage to see the condition, severity and required specialty."
+            body="Run triage on the patient description to see the condition, severity and required specialty."
           />
         </CardBody>
       </Card>
@@ -56,7 +58,7 @@ export function TriageSummary({
   }
 
   return (
-    <Card className="h-full">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Stethoscope className="size-4" />
@@ -68,7 +70,7 @@ export function TriageSummary({
               Extracted by Claude · {Math.round(triage.confidence * 100)}% confidence
             </span>
           ) : source === "manual" ? (
-            <span>Corrected by the dispatcher</span>
+            <span>Corrected manually</span>
           ) : (
             <span className="text-warning">
               Keyword fallback — not AI · {Math.round(triage.confidence * 100)}%

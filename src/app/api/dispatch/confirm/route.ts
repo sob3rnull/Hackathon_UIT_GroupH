@@ -4,16 +4,21 @@ import { updateDispatch } from "@/lib/mediroute/store";
 
 const bodySchema = z.object({
   dispatch_id: z.string().min(1),
+  condition: z.string().default("general"),
+  severity: z.string().default("urgent"),
+  required_specialty: z.string().default("general"),
+  needs_icu: z.boolean().default(false),
   hospital_id: z.string().min(1),
   recommended_hospital_id: z.string().min(1).nullable(),
   eta_minutes: z.number().min(0).default(0),
 });
 
 /**
- * The crew's half of confirming a dispatch: which hospital they're taking the
- * patient to. Separate from POST /api/dispatch because that call already ran
- * — at assign time, on the dispatcher's screen, before this hospital was
- * known. This fills in the row it created.
+ * The crew's confirmation: everything the dispatcher's assign-time write
+ * couldn't know yet. Triage runs on the crew's own screen, not the
+ * dispatcher's — selectAmbulance() only needs the incident location, so
+ * there was never a reason to ask the dispatcher for it. This fills in the
+ * row assignAmbulance created, once.
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -31,12 +36,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const { dispatch_id, hospital_id, recommended_hospital_id, eta_minutes } = parsed.data;
+  const {
+    dispatch_id,
+    condition,
+    severity,
+    required_specialty,
+    needs_icu,
+    hospital_id,
+    recommended_hospital_id,
+    eta_minutes,
+  } = parsed.data;
   const was_override =
     recommended_hospital_id !== null && recommended_hospital_id !== hospital_id;
 
   try {
     const row = await updateDispatch(dispatch_id, {
+      condition,
+      severity,
+      required_specialty,
+      needs_icu,
       hospital_id,
       recommended_hospital_id,
       eta_minutes,

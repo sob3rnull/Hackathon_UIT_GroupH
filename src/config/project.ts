@@ -9,7 +9,7 @@ export const project = {
     "Routes ambulances to the hospital that can actually treat the patient — not just the closest one.",
 
   pitch:
-    "Emergency routing today optimizes for distance alone, so ambulances arrive to find no beds, no specialist on duty, or an overloaded ER. MediRoute reads the paramedic's own words, extracts structured triage, and ranks hospitals on live capacity plus travel time — showing its reasoning every step, with a dispatcher override always one click away.",
+    "Emergency routing today optimizes for distance alone, so ambulances arrive to find no beds, no specialist on duty, or an overloaded ER. MediRoute sends the nearest ambulance the moment a call comes in, then reads the crew's own words to extract structured triage and rank hospitals on live capacity plus travel time — showing its reasoning every step, with a human override always one click away.",
 
   team: "Group H · UIT",
 
@@ -29,7 +29,7 @@ export const project = {
       href: "/dispatcher",
       label: "Dispatcher",
       role: "119 call taker",
-      blurb: "Take the call, run triage, choose the ambulance and the hospital.",
+      blurb: "Take the call and send the nearest dispatchable ambulance.",
     },
     {
       href: "/hospital",
@@ -41,7 +41,7 @@ export const project = {
       href: "/ambulance",
       label: "Ambulance",
       role: "Crew on board",
-      blurb: "See the mission, the patient and the destination. Advance status.",
+      blurb: "Run triage, pick the hospital, advance status as the run progresses.",
     },
     {
       href: "/history",
@@ -58,12 +58,12 @@ export const project = {
 
   highlights: [
     {
-      title: "Hears the call",
-      body: "The 119 dispatcher dictates or types what the caller reports. Claude extracts condition, severity and required specialty, and shows the findings that drove the call.",
+      title: "Sends the right vehicle, fast",
+      body: "The 119 dispatcher logs the call and the incident location — that's all selecting a vehicle needs. Certified ambulances report GPS from an on-board IoT unit; the nearest available one is assigned, an uncertified vehicle never is, however close it is.",
     },
     {
-      title: "Sends the right vehicle",
-      body: "Certified ambulances report GPS from an on-board IoT unit. The nearest available one is assigned — an uncertified vehicle is never dispatchable, however close it is.",
+      title: "Triages where it matters",
+      body: "The crew dictates or types what they're seeing, right on their own tablet. Claude extracts condition, severity and required specialty, and shows the findings that drove the call.",
     },
     {
       title: "Picks a hospital that can treat",

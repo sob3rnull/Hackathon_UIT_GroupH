@@ -5,8 +5,9 @@ import { createDispatch, listDispatches, updateAmbulance } from "@/lib/mediroute
 const bodySchema = z.object({
   /**
    * Null when the dispatcher creates the row: assigning a vehicle is now the
-   * whole of their job. The crew fills this in later via
-   * POST /api/dispatch/choose-hospital.
+   * whole of their job — they never see triage, so there's nothing to rank a
+   * hospital against yet. The crew fills this in, along with the triage
+   * fields below, via POST /api/dispatch/confirm.
    */
   hospital_id: z.string().min(1).nullable().default(null),
   recommended_hospital_id: z.string().min(1).nullable(),

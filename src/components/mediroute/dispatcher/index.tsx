@@ -9,19 +9,13 @@ import { googleMapsAvailable } from "@/components/mediroute/google-map";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useDispatches } from "@/lib/mediroute/use-dispatches";
-import { assignAmbulance, getFleetPlan, runTriage } from "@/lib/mediroute/backend";
-import {
-  specialtyFor,
-  type AmbulanceSelection,
-  type LatLng,
-  type Triage,
-} from "@/lib/mediroute/types";
+import { assignAmbulance, getFleetPlan } from "@/lib/mediroute/backend";
+import type { AmbulanceSelection, LatLng } from "@/lib/mediroute/types";
 import { AmbulanceList } from "./ambulance-list";
 import { AssignmentPanel } from "./assignment-panel";
 import { IncidentTimeline, type TimelineStep } from "./incident-timeline";
 import { IntakePanel } from "./intake-panel";
 import { MapPanel } from "./map-panel";
-import { TriageSummary, type TriageSource } from "./triage-summary";
 
 const DEFAULT_INCIDENT: LatLng = { lat: 16.7769, lng: 96.1592 };
 
@@ -31,22 +25,23 @@ const EXAMPLE =
 /** Timestamps for the timeline. Written in handlers or the poll-driven effect below, never during render. */
 interface Marks {
   call: number | null;
-  triaged: number | null;
   assigned: number | null;
-  hospitalChosen: number | null;
+  confirmed: number | null;
 }
 
-const NO_MARKS: Marks = { call: null, triaged: null, assigned: null, hospitalChosen: null };
+const NO_MARKS: Marks = { call: null, assigned: null, confirmed: null };
 
 /**
  * The dispatch console.
  *
- * The dispatcher's job ends at assigning a vehicle: take the call, run
- * triage, pick the nearest dispatchable ambulance. Which hospital the patient
- * goes to is the crew's call, made on their own tablet once they're rolling
- * — see ambulance-dashboard.tsx. This component still shows that choice once
- * it's made (polling the same dispatch row it created), but never offers to
- * make it.
+ * The dispatcher's job is exactly one thing: take the call, find the nearest
+ * dispatchable ambulance, send it. No triage happens here —
+ * selectAmbulance() ranks purely on incident location, so there was never a
+ * real reason to ask the dispatcher for condition, severity or specialty.
+ * That runs on the crew's own screen once they're assigned, along with the
+ * hospital pick it feeds — see ambulance-dashboard.tsx. This component still
+ * shows both landing (polling the same dispatch row it created), but never
+ * offers to make either decision.
  *
  * Talks to the backend through lib/mediroute/backend.ts, which decides
  * whether that means n8n or the local route handlers — the ranking itself
@@ -62,10 +57,6 @@ export function Dispatcher() {
 
   const [note, setNote] = useState(EXAMPLE);
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
-  const [triage, setTriage] = useState<Triage | null>(null);
-  const [source, setSource] = useState<TriageSource>(null);
-  const [sourceNote, setSourceNote] = useState<string | null>(null);
-  const [triaging, setTriaging] = useState(false);
 
   const [fleetPick, setFleetPick] = useState<AmbulanceSelection | null>(null);
   const [assignedId, setAssignedId] = useState<string | null>(null);
@@ -77,24 +68,16 @@ export function Dispatcher() {
   const [marks, setMarks] = useState<Marks>(NO_MARKS);
 
   const [actionError, setActionError] = useState<string | null>(null);
-  const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
 
   const [mapMode, setMapMode] = useState<"google" | "svg">(
     googleMapsAvailable ? "google" : "svg",
   );
 
-  useEffect(() => {
-    fetch("/api/triage")
-      .then((r) => r.json())
-      .then((r) => setAiAvailable(r?.data?.aiAvailable ?? false))
-      .catch(() => setAiAvailable(false));
-  }, []);
-
-  const planFleet = useCallback(async (t: Triage, at: LatLng, silent = false) => {
+  const planFleet = useCallback(async (at: LatLng, silent = false) => {
     if (!silent) setPlanning(true);
     setActionError(null);
     try {
-      const fleet = await getFleetPlan(t, at);
+      const fleet = await getFleetPlan(at);
       setFleetPick(fleet);
       setAssignedId((current) =>
         current && fleet.candidates.some((c) => c.ambulance.id === current)
@@ -108,30 +91,32 @@ export function Dispatcher() {
     }
   }, []);
 
-  // Live re-plan when fleet status changes elsewhere — hospital capacity
-  // doesn't affect who's dispatchable, so unlike before this only watches
-  // fleetRevision. Stops once assigned: this incident's fleet decision is
-  // already made, so further fleet churn from OTHER incidents is noise here.
+  // Live re-plan when fleet status changes elsewhere. Stops once assigned:
+  // this incident's fleet decision is already made, so further fleet churn
+  // from OTHER incidents is noise here.
   //
   // Debounced 1.2s for the same reason as the write side of any Routes call:
   // a burst of fleet events should coalesce into one re-plan.
   useEffect(() => {
-    if (fleetRevision === 0 || !triage || assignedDispatchId) return;
+    if (fleetRevision === 0 || !fleetPick || assignedDispatchId) return;
     // Reacting to an external realtime event (a change on another machine) —
     // the documented escape hatch for this rule. Once per event.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStaleNotice(true);
-    const planTimer = setTimeout(() => void planFleet(triage, incident, true), 1200);
+    const planTimer = setTimeout(() => void planFleet(incident, true), 1200);
     const noticeTimer = setTimeout(() => setStaleNotice(false), 4000);
     return () => {
       clearTimeout(planTimer);
       clearTimeout(noticeTimer);
     };
-  }, [fleetRevision, triage, incident, assignedDispatchId, planFleet]);
+    // fleetPick is read only as an existence check ("has a plan run yet");
+    // including it would re-run this effect on every re-plan it itself causes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fleetRevision, incident, assignedDispatchId, planFleet]);
 
-  // Once assigned, watch the same dispatch row for the crew's hospital pick
-  // landing (polled via useDispatches) — the dispatcher can see the decision
-  // happen without ever being offered to make it.
+  // Once assigned, watch the same dispatch row for the crew's confirmation
+  // landing (polled via useDispatches) — the dispatcher can see the triage
+  // and hospital choice happen without ever being offered to make either.
   const assignedDispatch = assignedDispatchId
     ? (dispatches.find((d) => d.id === assignedDispatchId) ?? null)
     : null;
@@ -140,53 +125,27 @@ export function Dispatcher() {
     : null;
 
   useEffect(() => {
-    if (assignedHospitalName && marks.hospitalChosen === null) {
+    if (assignedHospitalName && marks.confirmed === null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setMarks((current) => ({ ...current, hospitalChosen: Date.now() }));
+      setMarks((current) => ({ ...current, confirmed: Date.now() }));
     }
-  }, [assignedHospitalName, marks.hospitalChosen]);
+  }, [assignedHospitalName, marks.confirmed]);
 
-  async function handleTriage() {
-    setTriaging(true);
+  async function handleFindAmbulances() {
     setActionError(null);
     setAssignedDispatchId(null);
     setMarks({ ...NO_MARKS, call: Date.now() });
-
-    try {
-      const result = await runTriage(note);
-
-      setTriage(result.triage);
-      setSource(result.source);
-      setSourceNote(result.note ?? null);
-      setMarks((current) => ({ ...current, triaged: Date.now() }));
-
-      await planFleet(result.triage, incident);
-    } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Triage failed");
-    } finally {
-      setTriaging(false);
-    }
-  }
-
-  function patchTriage(patch: Partial<Triage>) {
-    if (!triage) return;
-    const next: Triage = { ...triage, ...patch };
-    if (patch.condition) next.requiredSpecialty = specialtyFor[patch.condition];
-    setTriage(next);
-    setSource("manual");
-    setSourceNote(null);
-    setAssignedDispatchId(null);
-    void planFleet(next, incident);
+    await planFleet(incident);
   }
 
   function moveIncident(point: LatLng) {
     setIncident(point);
     setAssignedDispatchId(null);
-    if (triage) void planFleet(triage, point);
+    if (fleetPick) void planFleet(point);
   }
 
   async function confirmAssign() {
-    if (!triage || !assignedId) return;
+    if (!assignedId) return;
     const candidate = fleetPick?.candidates.find((c) => c.ambulance.id === assignedId);
     if (!candidate) return;
 
@@ -196,10 +155,6 @@ export function Dispatcher() {
       const row = await assignAmbulance({
         ambulance_id: candidate.ambulance.id,
         patient_note: note,
-        condition: triage.condition,
-        severity: triage.severity,
-        required_specialty: triage.requiredSpecialty,
-        needs_icu: triage.needsICU,
         response_eta_minutes: Math.round(candidate.responseMinutes),
         incident_lat: incident.lat,
         incident_lng: incident.lng,
@@ -210,7 +165,7 @@ export function Dispatcher() {
       setMarks((current) => ({ ...current, assigned: Date.now() }));
       toast({
         title: `${candidate.ambulance.callsign} assigned`,
-        description: "Choosing a hospital is now on their tablet.",
+        description: "Triage and hospital choice are now on their tablet.",
       });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Assignment failed";
@@ -235,15 +190,6 @@ export function Dispatcher() {
       detail: marks.call ? note.slice(0, 80) : "Waiting for a 119 call",
     },
     {
-      label: "Triage complete",
-      at: marks.triaged,
-      detail: triage
-        ? `${triage.severity} ${triage.condition} · needs ${triage.requiredSpecialty}${
-            triage.needsICU ? " · ICU" : ""
-          }`
-        : null,
-    },
-    {
       label: "Ambulance assigned",
       at: marks.assigned,
       detail: assignedCallsign
@@ -251,9 +197,12 @@ export function Dispatcher() {
         : null,
     },
     {
-      label: "Hospital chosen by crew",
-      at: marks.hospitalChosen,
-      detail: assignedHospitalName ? `${assignedHospitalName}` : null,
+      label: "Triaged & hospital confirmed by crew",
+      at: marks.confirmed,
+      detail:
+        assignedDispatch?.hospital_id && assignedHospitalName
+          ? `${assignedDispatch.severity} ${assignedDispatch.condition} → ${assignedHospitalName}`
+          : null,
     },
   ];
 
@@ -265,31 +214,22 @@ export function Dispatcher() {
       {/* ── Top: the call ────────────────────────────────────────────────── */}
       <Section
         title="Emergency intake"
-        description="What the caller reported, and what the AI made of it."
+        description="What the caller reported — enough to find and send the nearest vehicle."
       >
-        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-          <IntakePanel
-            note={note}
-            onNoteChange={setNote}
-            onModeChange={setInputMode}
-            onRunTriage={handleTriage}
-            triaging={triaging}
-            aiAvailable={aiAvailable}
-          />
-          <TriageSummary
-            triage={triage}
-            source={source}
-            sourceNote={sourceNote}
-            onPatch={patchTriage}
-          />
-        </div>
+        <IntakePanel
+          note={note}
+          onNoteChange={setNote}
+          onModeChange={setInputMode}
+          onFindAmbulances={handleFindAmbulances}
+          finding={planning}
+        />
       </Section>
 
       {/* ── Middle: the one decision — which ambulance ───────────────────── */}
       {fleetPick ? (
         <Section
           title="Assign an ambulance"
-          description="Your only decision here. The crew picks the hospital once they're rolling."
+          description="Your only decision here. Triage and the hospital pick happen on the crew's tablet."
         >
           {staleNotice ? (
             <div className="flex items-center gap-2 rounded-card border border-accent/40 bg-accent-soft px-4 py-3 text-sm">

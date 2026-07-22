@@ -8,6 +8,7 @@ import {
   MapPin,
   Route as RouteIcon,
   ShieldOff,
+  Sparkles,
   Timer,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -25,16 +26,18 @@ import {
 import { HospitalChoiceList } from "@/components/mediroute/hospital-choice-list";
 import { ReasonList } from "@/components/mediroute/reasons";
 import { AmbulanceRouteMap } from "@/components/mediroute/ambulance-route-map";
-import { chooseHospital, getHospitalPlan } from "@/lib/mediroute/backend";
+import { TriageSummary, type TriageSource } from "@/components/mediroute/triage-summary";
+import { confirmMission, getHospitalPlan, runTriage } from "@/lib/mediroute/backend";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useDispatches } from "@/lib/mediroute/use-dispatches";
-import type {
-  AmbulanceStatus,
-  Condition,
-  Recommendation,
-  Severity,
-  Triage,
+import {
+  specialtyFor,
+  type AmbulanceStatus,
+  type Condition,
+  type Recommendation,
+  type Severity,
+  type Triage,
 } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
 
@@ -48,11 +51,13 @@ const VEHICLE_KEY = "mediroute:vehicle";
  * There is no sign-in yet, so the crew picks its own vehicle once and the
  * choice is remembered on the device — the seam where auth will slot in.
  *
- * Picks up where the dispatcher leaves off: dispatch assigns a vehicle and
- * stops there, so a fresh mission always arrives with hospital_id null. This
- * screen is where that gets filled in — the crew ranks hospitals themselves,
- * confirms one, and only then does the mission look "complete" to the rest
- * of the app (History, the dispatcher's timeline).
+ * Picks up where the dispatcher leaves off: dispatch assigns a vehicle from
+ * nothing but the incident location and stops there, so a fresh mission
+ * always arrives with placeholder triage and hospital_id null. This screen
+ * runs the actual triage (the same AI call the dispatcher used to run, just
+ * relocated — selectAmbulance() never needed it), ranks hospitals against
+ * it, and only once the crew confirms does the mission look "complete" to
+ * the rest of the app (History, the dispatcher's timeline).
  */
 export function AmbulanceDashboard() {
   const { ambulances, loading, error, reload } = useFleet();
@@ -63,12 +68,26 @@ export function AmbulanceDashboard() {
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
+  const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
+
+  const [triage, setTriage] = useState<Triage | null>(null);
+  const [triageSource, setTriageSource] = useState<TriageSource>(null);
+  const [triageSourceNote, setTriageSourceNote] = useState<string | null>(null);
+  const [triaging, setTriaging] = useState(false);
 
   const [hospitalPlan, setHospitalPlan] = useState<Recommendation | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [pickedHospitalId, setPickedHospitalId] = useState<string | null>(null);
-  const [choosingHospital, setChoosingHospital] = useState(false);
-  const planMissionRef = useRef<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  const missionIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/triage")
+      .then((r) => r.json())
+      .then((r) => setAiAvailable(r?.data?.aiAvailable ?? false))
+      .catch(() => setAiAvailable(false));
+  }, []);
 
   // Restore the last vehicle after mount — localStorage isn't readable during
   // render without breaking hydration.
@@ -97,43 +116,32 @@ export function AmbulanceDashboard() {
     [hospitals, mission],
   );
 
-  // Rank hospitals ourselves once dispatch hands off a mission with no
-  // hospital yet. Guarded on mission id, not on the effect re-running — the
-  // dispatch feed re-polls every 10s and would otherwise re-rank on every
-  // tick for as long as the crew takes to decide.
+  // A genuinely new mission (new incident, or the crew switched vehicles) —
+  // clear any in-progress local triage/hospital draft from the previous one.
+  // Doesn't fire on the dispatch feed's own 10s poll ticks, only when the
+  // mission actually changes, so a half-finished triage isn't wiped out from
+  // under the crew while they're still working on it.
   useEffect(() => {
-    if (
-      !mission ||
-      mission.hospital_id ||
-      mission.incident_lat == null ||
-      mission.incident_lng == null
-    ) {
-      return;
+    if (mission?.id !== missionIdRef.current) {
+      missionIdRef.current = mission?.id ?? null;
+      setTriage(null);
+      setTriageSource(null);
+      setTriageSourceNote(null);
+      setHospitalPlan(null);
+      setPickedHospitalId(null);
     }
-    if (planMissionRef.current === mission.id) return;
-    planMissionRef.current = mission.id;
+  }, [mission?.id]);
 
-    const triage: Triage = {
-      condition: mission.condition as Condition,
-      severity: mission.severity as Severity,
-      requiredSpecialty: mission.required_specialty,
-      needsICU: mission.needs_icu,
-      redFlags: [],
-      confidence: 1,
-    };
-    const incident = { lat: mission.incident_lat, lng: mission.incident_lng };
-
-    setPlanLoading(true);
-    getHospitalPlan(triage, incident)
-      .then((rec) => {
-        setHospitalPlan(rec);
-        setPickedHospitalId(rec.ranked[0]?.hospital.id ?? null);
-      })
-      .catch((cause) => {
-        setWriteError(cause instanceof Error ? cause.message : "Could not rank hospitals");
-      })
-      .finally(() => setPlanLoading(false));
-  }, [mission]);
+  /** Triage already on the mission if confirmed, otherwise the crew's own draft. */
+  const knownTriage = triage ??
+    (mission?.hospital_id
+      ? {
+          condition: mission.condition as Condition,
+          severity: mission.severity as Severity,
+          requiredSpecialty: mission.required_specialty,
+          needsICU: mission.needs_icu,
+        }
+      : null);
 
   // The road leg to draw right now, given where the vehicle is in its run.
   const currentLeg = useMemo(() => {
@@ -170,9 +178,6 @@ export function AmbulanceDashboard() {
   function chooseVehicle(id: string) {
     setVehicleId(id);
     localStorage.setItem(VEHICLE_KEY, id);
-    planMissionRef.current = null;
-    setHospitalPlan(null);
-    setPickedHospitalId(null);
   }
 
   async function advance(status: AmbulanceStatus, label: string) {
@@ -199,16 +204,65 @@ export function AmbulanceDashboard() {
     }
   }
 
-  async function confirmHospital() {
-    if (!mission || !hospitalPlan || !pickedHospitalId) return;
+  async function rankHospitals(t: Triage) {
+    if (!mission || mission.incident_lat == null || mission.incident_lng == null) return;
+    setPlanLoading(true);
+    setWriteError(null);
+    try {
+      const rec = await getHospitalPlan(t, {
+        lat: mission.incident_lat,
+        lng: mission.incident_lng,
+      });
+      setHospitalPlan(rec);
+      setPickedHospitalId(rec.ranked[0]?.hospital.id ?? null);
+    } catch (cause) {
+      setWriteError(cause instanceof Error ? cause.message : "Could not rank hospitals");
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
+  async function handleRunTriage() {
+    if (!mission) return;
+    setTriaging(true);
+    setWriteError(null);
+    try {
+      const result = await runTriage(mission.patient_note);
+      setTriage(result.triage);
+      setTriageSource(result.source);
+      setTriageSourceNote(result.note ?? null);
+      await rankHospitals(result.triage);
+    } catch (cause) {
+      setWriteError(cause instanceof Error ? cause.message : "Triage failed");
+    } finally {
+      setTriaging(false);
+    }
+  }
+
+  function patchTriage(patch: Partial<Triage>) {
+    if (!triage) return;
+    const next: Triage = { ...triage, ...patch };
+    if (patch.condition) next.requiredSpecialty = specialtyFor[patch.condition];
+    setTriage(next);
+    setTriageSource("manual");
+    setTriageSourceNote(null);
+    void rankHospitals(next);
+  }
+
+  async function handleConfirm() {
+    if (!mission || !triage || !hospitalPlan || !pickedHospitalId) return;
     const chosen = hospitalPlan.ranked.find((r) => r.hospital.id === pickedHospitalId);
     if (!chosen) return;
 
-    setChoosingHospital(true);
+    setConfirming(true);
     setWriteError(null);
     try {
-      await chooseHospital({
+      await confirmMission({
         dispatch_id: mission.id,
+        condition: triage.condition,
+        severity: triage.severity,
+        required_specialty: triage.requiredSpecialty,
+        needs_icu: triage.needsICU,
         hospital_id: chosen.hospital.id,
         recommended_hospital_id: hospitalPlan.ranked[0]?.hospital.id ?? null,
         eta_minutes: Math.round(chosen.etaMinutes),
@@ -219,11 +273,11 @@ export function AmbulanceDashboard() {
         description: `${Math.round(chosen.etaMinutes)} min transport.`,
       });
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Could not confirm hospital";
+      const message = cause instanceof Error ? cause.message : "Could not confirm";
       setWriteError(message);
-      toast({ title: "Could not confirm hospital", description: message, tone: "danger" });
+      toast({ title: "Could not confirm", description: message, tone: "danger" });
     } finally {
-      setChoosingHospital(false);
+      setConfirming(false);
     }
   }
 
@@ -242,7 +296,8 @@ export function AmbulanceDashboard() {
 
   const currentStageIndex = crewStages.findIndex((s) => s.status === vehicle.status);
   const pickedEntry = hospitalPlan?.ranked.find((r) => r.hospital.id === pickedHospitalId);
-  const needsHospital = Boolean(mission && !mission.hospital_id);
+  const needsTriage = Boolean(mission && !mission.hospital_id && !triage);
+  const needsHospitalPick = Boolean(mission && !mission.hospital_id && triage);
 
   return (
     <div className="flex flex-col gap-5">
@@ -302,7 +357,7 @@ export function AmbulanceDashboard() {
           <CardTitle className="text-lg">Current mission</CardTitle>
           <CardDescription>
             {mission
-              ? "Assigned by dispatch. Patient details as reported on the 119 call."
+              ? "Assigned by dispatch. Run triage yourself, then pick where you're taking the patient."
               : "Nothing assigned right now."}
           </CardDescription>
         </CardHeader>
@@ -316,12 +371,14 @@ export function AmbulanceDashboard() {
             />
           ) : (
             <div className="flex flex-col gap-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <SeverityBadge severity={mission.severity} />
-                <Badge tone="neutral">{mission.condition}</Badge>
-                {mission.needs_icu ? <Badge tone="danger">ICU on arrival</Badge> : null}
-                <Badge tone="neutral">needs {mission.required_specialty}</Badge>
-              </div>
+              {knownTriage ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <SeverityBadge severity={knownTriage.severity} />
+                  <Badge tone="neutral">{knownTriage.condition}</Badge>
+                  {knownTriage.needsICU ? <Badge tone="danger">ICU on arrival</Badge> : null}
+                  <Badge tone="neutral">needs {knownTriage.requiredSpecialty}</Badge>
+                </div>
+              ) : null}
 
               <div className="flex flex-col gap-1.5">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted">
@@ -370,7 +427,9 @@ export function AmbulanceDashboard() {
                     <p className="text-lg font-medium">
                       {Math.round(mission.response_eta_minutes)} min out
                     </p>
-                    <p className="text-xs text-muted">Choose the destination below</p>
+                    <p className="text-xs text-muted">
+                      {needsTriage ? "Run triage below" : "Choose the destination below"}
+                    </p>
                   </div>
                 </div>
               )}
@@ -379,9 +438,40 @@ export function AmbulanceDashboard() {
         </CardBody>
       </Card>
 
-      {/* ── Choose the hospital — the crew's decision, not dispatch's ────── */}
-      {needsHospital ? (
+      {/* ── Run triage — the crew's own AI call, not dispatch's ──────────── */}
+      {needsTriage ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Run triage</CardTitle>
+            <CardDescription>
+              Extract condition, severity and required specialty from the
+              patient description above.
+            </CardDescription>
+          </CardHeader>
+          <CardBody className="flex flex-col gap-3">
+            <Button onClick={handleRunTriage} disabled={triaging} className="self-start">
+              {triaging ? <Spinner /> : <Sparkles className="size-4" />}
+              {triaging ? "Triaging…" : "Run triage"}
+            </Button>
+            {aiAvailable === false ? (
+              <p className="text-xs text-warning">
+                No <code>ANTHROPIC_API_KEY</code> set — using the keyword fallback.
+              </p>
+            ) : null}
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {/* ── Choose the hospital, once triage is in ───────────────────────── */}
+      {needsHospitalPick && triage ? (
         <>
+          <TriageSummary
+            triage={triage}
+            source={triageSource}
+            sourceNote={triageSourceNote}
+            onPatch={patchTriage}
+          />
+
           <HospitalChoiceList
             rec={hospitalPlan}
             selectedId={pickedHospitalId}
@@ -407,12 +497,12 @@ export function AmbulanceDashboard() {
               <CardBody className="flex flex-col gap-4">
                 <ReasonList reasons={pickedEntry.reasons} />
                 <Button
-                  onClick={confirmHospital}
-                  disabled={choosingHospital}
+                  onClick={handleConfirm}
+                  disabled={confirming}
                   className="self-start"
                 >
                   <Check className="size-4" />
-                  {choosingHospital ? "Confirming…" : "Confirm hospital & route"}
+                  {confirming ? "Confirming…" : "Confirm hospital & route"}
                 </Button>
               </CardBody>
             </Card>
