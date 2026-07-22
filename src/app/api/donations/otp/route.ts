@@ -31,9 +31,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const code = requestOtp(parsed.data.phone);
+  const result = requestOtp(parsed.data.phone);
+
+  if (!result.ok) {
+    // Shape matches ApiResult so the existing client error path renders it
+    // unchanged; Retry-After is there for anything speaking HTTP properly.
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Too many code requests. Try again in ${result.retryAfterSeconds}s.`,
+      },
+      { status: 429, headers: { "Retry-After": String(result.retryAfterSeconds) } },
+    );
+  }
+
   return NextResponse.json({
     ok: true,
-    data: { sent: true, expires_in_minutes: 5, demo_code: code },
+    data: {
+      sent: true,
+      expires_in_minutes: result.expiresInMinutes,
+      demo_code: result.code,
+    },
   });
 }
