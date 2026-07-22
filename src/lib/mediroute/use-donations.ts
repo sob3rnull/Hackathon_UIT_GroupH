@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import type { ApiResult, DonationSummary } from "./types";
 
 /**
- * Donation totals for the public page. Same shape as useHospitals: Supabase
- * Realtime when configured, gentle polling against the in-memory store when
- * not, so the directory works either way.
+ * Donation totals for the public page. Polls every 10s regardless of whether
+ * Supabase is configured — see the note in the effect for why this one hook
+ * doesn't use Realtime the way useHospitals and useFleet do.
  */
 export function useDonations() {
   const [summary, setSummary] = useState<DonationSummary | null>(null);
@@ -34,25 +33,13 @@ export function useDonations() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
 
-    const supabase = createClient();
-
-    if (!supabase) {
-      const timer = setInterval(() => void load(), 10000);
-      return () => clearInterval(timer);
-    }
-
-    const channel = supabase
-      .channel("donations-feed")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "donations" },
-        () => void load(),
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    // Polling, not Realtime, and deliberately so. Realtime broadcasts the full
+    // row to subscribers and ignores column-level grants, so subscribing to
+    // `donations` would push every donor's payer_phone to the browser even
+    // though the REST path is locked down. Migration 0007 drops the table from
+    // the publication; a 10s poll is the honest trade for a donation counter.
+    const timer = setInterval(() => void load(), 10000);
+    return () => clearInterval(timer);
   }, [load]);
 
   return { summary, loading, error, reload: load };

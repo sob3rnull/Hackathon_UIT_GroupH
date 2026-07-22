@@ -207,9 +207,19 @@ export interface Donation {
   created_at: string;
 }
 
+/**
+ * A donation as the public page is allowed to see it.
+ *
+ * payer_phone is deliberately absent: it's a real contact number, it's never
+ * displayed, and /api/donations is reachable without signing in. The database
+ * enforces the same cut with a column-level GRANT (migration 0007), so this
+ * isn't merely a convention.
+ */
+export type PublicDonation = Omit<Donation, "payer_phone">;
+
 export interface DonationSummary {
   /** Recent donations, newest first. */
-  donations: Donation[];
+  donations: PublicDonation[];
   /** Running totals keyed by hospital id. */
   totals: Record<string, { total: number; count: number }>;
 }

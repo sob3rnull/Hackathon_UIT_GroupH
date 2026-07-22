@@ -26,9 +26,21 @@ export const GUARD: ReadonlyArray<readonly [string, readonly Role[]]> = [
   ["/hospital", ["hospital"]],
 ];
 
+/**
+ * Reachable without a session, and never redirected away from.
+ *
+ * "/" is MediRoute's public face — the hospital directory and the donation
+ * form. Treating it as an app route would put the donation flow behind a login
+ * wall, which defeats its whole purpose.
+ */
+export function isOpenPath(path: string): boolean {
+  return path === "/" || path.startsWith("/api/donations");
+}
+
 /** Paths reachable without a session. */
 export function isPublicPath(path: string): boolean {
   return (
+    isOpenPath(path) ||
     path === "/login" ||
     path === "/reset-password" ||
     path === "/update-password" ||

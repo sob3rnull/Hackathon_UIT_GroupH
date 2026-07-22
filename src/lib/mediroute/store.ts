@@ -2,7 +2,13 @@ import "server-only";
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { createDataClient } from "@/lib/supabase/server";
-import type { Ambulance, AmbulanceStatus, Donation, Hospital } from "./types";
+import type {
+  Ambulance,
+  AmbulanceStatus,
+  Donation,
+  Hospital,
+  PublicDonation,
+} from "./types";
 
 /** Powers the "Demo data" / "Supabase" badge in the header. */
 export function storeMode(): "supabase" | "memory" {
@@ -337,6 +343,20 @@ export async function updateDispatch(
 
 /* ── Donations ─────────────────────────────────────────────────────────── */
 
+/**
+ * Every column except payer_phone.
+ *
+ * /api/donations is reachable without signing in, so anything selected here
+ * lands in a public HTTP response. A donor's wallet number is not display
+ * data and nothing in the UI renders it. Migration 0007 revokes the column
+ * from anon and authenticated as well, so a stray select("*") now fails loudly
+ * rather than leaking.
+ */
+const DONATION_PUBLIC_COLUMNS =
+  "id, hospital_id, donor_name, amount, message, payment_method, created_at";
+
+const stripPayerPhone = ({ payer_phone: _ignored, ...rest }: Donation): PublicDonation => rest;
+
 const gdn = globalThis as unknown as { __donations?: Donation[] };
 
 /** A couple of seed rows so the public page has totals to show on day one. */
@@ -364,7 +384,7 @@ export interface DonationInput {
   payer_phone: string;
 }
 
-export async function createDonation(input: DonationInput): Promise<Donation> {
+export async function createDonation(input: DonationInput): Promise<PublicDonation> {
   const db = await createDataClient();
 
   if (!db) {
@@ -374,31 +394,33 @@ export async function createDonation(input: DonationInput): Promise<Donation> {
       created_at: new Date().toISOString(),
     };
     donationMemory().unshift(row);
-    return row;
+    // Strip explicitly: TypeScript structurally allows the wider Donation here,
+    // so without this the phone number would ride along in memory mode.
+    return stripPayerPhone(row);
   }
 
   const { data, error } = await db
     .from("donations")
     .insert(input)
-    .select("*")
+    .select(DONATION_PUBLIC_COLUMNS)
     .single();
 
   if (error) throw new Error(error.message);
-  return data as Donation;
+  return data as PublicDonation;
 }
 
-export async function listDonations(): Promise<Donation[]> {
+export async function listDonations(): Promise<PublicDonation[]> {
   const db = await createDataClient();
-  if (!db) return [...donationMemory()];
+  if (!db) return [...donationMemory()].map(stripPayerPhone);
 
   const { data, error } = await db
     .from("donations")
-    .select("*")
+    .select(DONATION_PUBLIC_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(50);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as Donation[];
+  return (data ?? []) as PublicDonation[];
 }
 
 export async function donationTotals(): Promise<

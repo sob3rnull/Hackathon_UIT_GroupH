@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { safeNext } from "@/lib/auth/roles";
+import { HOME, isRole, safeNext } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
@@ -26,7 +26,7 @@ export default function LoginPage() {
     }
 
     setBusy(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -39,10 +39,16 @@ export default function LoginPage() {
       return;
     }
 
-    // Full navigation rather than router.push: the middleware has to see the
-    // freshly-written session cookie to route us to the right dashboard.
+    // Resolve the destination here rather than bouncing off "/": that's the
+    // public directory now, and the middleware deliberately lets it through,
+    // so landing there would leave the user short of their dashboard.
+    const role = data.user?.app_metadata?.role;
+    const home = isRole(role) ? HOME[role] : "/pending";
+
+    // Full navigation rather than router.push, so the middleware sees the
+    // freshly-written session cookie on the very next request.
     const next = safeNext(new URLSearchParams(window.location.search).get("next"));
-    window.location.assign(next ?? "/");
+    window.location.assign(next ?? home);
   }
 
   return (

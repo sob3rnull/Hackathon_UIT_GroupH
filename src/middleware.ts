@@ -3,6 +3,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 import {
   HOME,
   allowedOn,
+  isOpenPath,
   isPublicPath,
   isRole,
   isSignedOutOnlyPath,
@@ -24,6 +25,10 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  // The public directory and donation flow are open to everyone, signed in or
+  // not. Checked before the session branch so neither redirect can strand it.
+  if (isOpenPath(path)) return response;
+
   if (!user) {
     if (isPublicPath(path)) return response;
     const url = new URL("/login", request.url);
@@ -42,10 +47,11 @@ export async function middleware(request: NextRequest) {
 
   const home = HOME[role];
 
-  // Signed in but sitting on the login screen or the root — send them home.
-  // /update-password and /auth/* are excluded: recovery signs the user in
-  // before they get there, so bouncing them would strand the reset flow.
-  if (path === "/" || isSignedOutOnlyPath(path)) {
+  // Signed in but sitting on the login screen — send them home. "/" is not
+  // included: it's the public directory and returned early above, so a
+  // signed-in user can still browse it. /update-password and /auth/* are
+  // excluded too, since recovery signs the user in before they get there.
+  if (isSignedOutOnlyPath(path)) {
     return NextResponse.redirect(new URL(home, request.url));
   }
 

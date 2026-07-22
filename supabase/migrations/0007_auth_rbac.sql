@@ -177,6 +177,44 @@ create policy "hospital confirms arrival" on public.dispatches
           and hospital_id = (select public.jwt_hospital_id()))
   with check (hospital_id = (select public.jwt_hospital_id()));
 
+-- ─── donations ──────────────────────────────────────────────────────────
+-- The donation flow is genuinely public: "/" is an unauthenticated directory
+-- page with a donate form, so anon must keep INSERT and SELECT here. What anon
+-- must NOT have is payer_phone, which is a real contact number that nothing in
+-- the UI displays.
+--
+-- RLS is row-level only, so the row policies below are paired with a
+-- column-level GRANT. Both have to pass: the policy decides which rows, the
+-- grant decides which columns. A stray select('*') from the browser now fails
+-- with "permission denied for column payer_phone" instead of quietly leaking.
+
+drop policy if exists "anon full access" on public.donations;
+
+create policy "donations readable" on public.donations
+  for select to anon, authenticated using (true);
+
+create policy "anyone may donate" on public.donations
+  for insert to anon, authenticated with check (true);
+
+-- Deliberately no UPDATE or DELETE policy: a donation is a receipt. Nobody
+-- edits one through the API; corrections go through the service role.
+
+revoke select on public.donations from anon, authenticated;
+grant select (id, hospital_id, donor_name, amount, message, payment_method, created_at)
+  on public.donations to anon, authenticated;
+
+-- Realtime broadcasts the whole row to every subscriber and does not apply the
+-- column grant above, so leaving donations in the publication would hand out
+-- payer_phone through the websocket even with the REST path locked down. The
+-- public page polls instead — see use-donations.ts.
+alter publication supabase_realtime drop table public.donations;
+
+-- ─── items ──────────────────────────────────────────────────────────────
+-- Left over from the project template and unused by MediRoute. Drop the open
+-- policy so it isn't the one anon-writable table left standing; drop the table
+-- entirely once you've confirmed nothing reads it.
+drop policy if exists "anon full access" on public.items;
+
 -- ─── Known limits, stated plainly ───────────────────────────────────────
 -- 1. RLS is row-level, not column-level. "hospital staff edit own" lets staff
 --    write ANY column on their own row, including total_beds. To restrict:
