@@ -36,6 +36,24 @@ export default function HomePage() {
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
             Every minute matters. Help hospitals stay ready.
           </h1>
+
+          {/* Ka Note (ကနုတ်) scroll — the ornament the theme is named after. */}
+          <svg
+            aria-hidden
+            viewBox="0 0 200 24"
+            className="h-5 w-44 text-accent"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          >
+            <path d="M100 4 L106 12 L100 20 L94 12 Z" fill="currentColor" stroke="none" />
+            <path d="M88 12 C70 12 66 4 52 6 C40 8 38 18 46 20 C52 21 55 15 50 13" />
+            <path d="M52 6 C40 2 22 4 12 12" />
+            <path d="M112 12 C130 12 134 4 148 6 C160 8 162 18 154 20 C148 21 145 15 150 13" />
+            <path d="M148 6 C160 2 178 4 188 12" />
+          </svg>
+
           <p className="max-w-2xl text-lg text-muted">{project.tagline}</p>
 
           <div className="mt-2 flex flex-wrap items-center justify-center gap-3">

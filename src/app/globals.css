@@ -9,25 +9,28 @@
  * buttons, focus rings, links, badges and the hero glow all read from it.
  */
 /*
- * Hospital palette: #D6F3F4 aqua, #74B3CE sky, #508991 teal, #004346 deep
- * teal, #172A3A navy — mapped onto the same token system in OKLCH.
+ * "Ka Note" (ကနုတ်) — Myanmar theme, named for the traditional ornamental
+ * scroll motif. Warm parchment with gilded bronze accents in light mode;
+ * deep lacquerware brown with gold in dark mode. Status colors unchanged.
  */
 :root {
-  --background: oklch(0.982 0.008 200);
-  --surface: oklch(1 0 0);
-  --surface-muted: oklch(0.955 0.017 200);
-  --foreground: oklch(0.26 0.037 248);
-  --muted: oklch(0.5 0.035 220);
-  --border: oklch(0.905 0.02 200);
+  /* warm parchment */
+  --background: oklch(0.975 0.012 85);
+  --surface: oklch(0.995 0.004 90);
+  --surface-muted: oklch(0.945 0.02 85);
+  /* dark teak */
+  --foreground: oklch(0.26 0.04 45);
+  --muted: oklch(0.5 0.04 60);
+  --border: oklch(0.9 0.025 80);
 
-  /* #508991, deepened a step so white text passes AA. */
-  --accent: oklch(0.5 0.07 205);
-  --accent-hover: oklch(0.42 0.065 200);
+  /* gilded bronze — deep enough that white text passes AA */
+  --accent: oklch(0.52 0.11 65);
+  --accent-hover: oklch(0.45 0.1 55);
   --accent-foreground: oklch(0.99 0 0);
-  /* #D6F3F4 */
-  --accent-soft: oklch(0.943 0.026 200);
-  /* #004346 — full-bleed bands like the donate section. */
-  --accent-deep: oklch(0.335 0.055 197);
+  /* pale gold leaf */
+  --accent-soft: oklch(0.93 0.045 88);
+  /* lacquer red-brown — full-bleed bands like the donate section */
+  --accent-deep: oklch(0.34 0.09 32);
 
   --success: oklch(0.6 0.14 155);
   --warning: oklch(0.72 0.15 75);
@@ -37,20 +40,20 @@
 }
 
 .dark {
-  /* #172A3A */
-  --background: oklch(0.24 0.035 248);
-  --surface: oklch(0.28 0.035 242);
-  --surface-muted: oklch(0.32 0.037 236);
-  --foreground: oklch(0.95 0.01 200);
-  --muted: oklch(0.7 0.035 220);
-  --border: oklch(0.37 0.038 232);
+  /* deep lacquer */
+  --background: oklch(0.22 0.03 40);
+  --surface: oklch(0.26 0.032 45);
+  --surface-muted: oklch(0.3 0.035 50);
+  --foreground: oklch(0.95 0.015 85);
+  --muted: oklch(0.72 0.04 75);
+  --border: oklch(0.36 0.04 55);
 
-  /* #74B3CE */
-  --accent: oklch(0.727 0.062 227);
-  --accent-hover: oklch(0.78 0.06 224);
-  --accent-foreground: oklch(0.24 0.035 248);
-  --accent-soft: oklch(0.34 0.05 220);
-  --accent-deep: oklch(0.31 0.05 200);
+  /* gold on lacquer */
+  --accent: oklch(0.78 0.115 85);
+  --accent-hover: oklch(0.83 0.11 88);
+  --accent-foreground: oklch(0.24 0.04 45);
+  --accent-soft: oklch(0.34 0.06 60);
+  --accent-deep: oklch(0.3 0.06 35);
 
   --success: oklch(0.72 0.15 155);
   --warning: oklch(0.79 0.15 75);
@@ -89,7 +92,8 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: var(--font-sans), system-ui, sans-serif;
+    font-family:
+      var(--font-sans), var(--font-padauk), system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 

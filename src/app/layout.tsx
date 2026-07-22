@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Padauk } from "next/font/google";
 import Link from "next/link";
 import { project } from "@/config/project";
 import { SiteHeader } from "@/components/site-header";
@@ -8,6 +8,12 @@ import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+/** Burmese glyphs — falls in behind Geist so my-MM text renders cleanly. */
+const padauk = Padauk({
+  variable: "--font-padauk",
+  weight: ["400", "700"],
+  subsets: ["myanmar"],
+});
 
 export const metadata: Metadata = {
   title: { default: project.name, template: `%s · ${project.name}` },
@@ -33,7 +39,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full`}>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${padauk.variable} h-full`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: noFlashTheme }} />
       </head>
@@ -44,7 +50,7 @@ export default function RootLayout({
           <footer className="border-t border-border py-6">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-5 text-sm text-muted">
               <span>
-                {project.name} — built by {project.team}
+                {project.name} — built by {project.team} · Ka Note (ကနုတ်) theme
               </span>
               <span className="ml-auto flex items-center gap-4">
                 {project.secondaryNav.map((link) => (
