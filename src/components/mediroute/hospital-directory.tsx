@@ -11,13 +11,14 @@ import { useToast } from "@/components/ui/toast";
 import { HospitalStatusBadge } from "@/components/mediroute/status";
 import { project } from "@/config/project";
 import { cn } from "@/lib/utils";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateApiError } from "@/lib/i18n/translate-error";
 import { describeHospital } from "@/lib/mediroute/describe";
 import { useDonations } from "@/lib/mediroute/use-donations";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import {
   myanmarBanks,
   myanmarPhonePattern,
-  paymentMethodLabel,
   paymentMethods,
   walletMethods,
   type ApiResult,
@@ -30,6 +31,16 @@ const mmk = new Intl.NumberFormat("en-US");
 
 const MAX_CHIPS = 4;
 
+/** PaymentMethod value → the dictionary's donate.method* key. */
+const METHOD_KEYS: Record<PaymentMethod, string> = {
+  kbz_pay: "donate.methodKbzPay",
+  aya_pay: "donate.methodAyaPay",
+  wave_money: "donate.methodWaveMoney",
+  cb_pay: "donate.methodCbPay",
+  bank_transfer: "donate.methodBankTransfer",
+  card: "donate.methodCard",
+};
+
 function HospitalCard({
   hospital,
   raised,
@@ -39,6 +50,7 @@ function HospitalCard({
   raised?: { total: number; count: number };
   onDonate: () => void;
 }) {
+  const t = useT();
   const extra = hospital.specialties.length - MAX_CHIPS;
 
   return (
@@ -50,13 +62,13 @@ function HospitalCard({
         </div>
 
         <CardDescription className="flex-1">
-          {describeHospital(hospital)}
+          {describeHospital(hospital, t, (s) => t(`status.specialty.${s}`))}
         </CardDescription>
 
         <div className="flex flex-wrap gap-1.5">
           {hospital.specialties.slice(0, MAX_CHIPS).map((specialty) => (
             <Badge key={specialty} tone="accent">
-              {specialty}
+              {t(`status.specialty.${specialty}`)}
             </Badge>
           ))}
           {extra > 0 ? <Badge>+{extra}</Badge> : null}
@@ -65,22 +77,25 @@ function HospitalCard({
         <div className="flex items-center gap-4 font-mono text-xs text-muted">
           <span className="inline-flex items-center gap-1.5">
             <BedDouble className="size-3.5" />
-            {hospital.available_beds} beds free
+            {t("home.bedsFree", { count: hospital.available_beds })}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <HeartPulse className="size-3.5" />
-            {hospital.icu_beds_free} ICU free
+            {t("home.icuFree", { count: hospital.icu_beds_free })}
           </span>
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
           <p className="text-xs font-semibold text-accent-hover dark:text-accent">
             {raised
-              ? `MMK ${mmk.format(raised.total)} raised · ${raised.count} donor${raised.count === 1 ? "" : "s"}`
-              : "Be the first donor"}
+              ? t(raised.count === 1 ? "home.raisedSingular" : "home.raised", {
+                  amount: mmk.format(raised.total),
+                  count: raised.count,
+                })
+              : t("home.beFirstDonor")}
           </p>
           <Button size="sm" onClick={onDonate}>
-            Donate
+            {t("home.donate")}
           </Button>
         </div>
       </CardBody>
@@ -94,6 +109,8 @@ function HospitalCard({
  * payment is processed — the disclaimer on the form says so.
  */
 export function HospitalDirectory() {
+  const t = useT();
+  const { locale } = useLocale();
   const { hospitals, loading, error, reload } = useHospitals();
   const donations = useDonations();
   const toast = useToast();
@@ -142,14 +159,15 @@ export function HospitalDirectory() {
       setOtpDemoCode(result.data.demo_code);
       setOtpInput("");
       toast({
-        title: "Verification code sent",
-        description: `Enter the code shown in the demo SMS to confirm ${paymentMethodLabel[method]}.`,
+        title: t("donate.codeSentTitle"),
+        description: t("donate.codeSentDescription", { method: t(METHOD_KEYS[method]) }),
       });
     } catch (cause) {
       toast({
         tone: "danger",
-        title: "Could not send the code",
-        description: cause instanceof Error ? cause.message : undefined,
+        title: t("donate.codeSendFailedTitle"),
+        description:
+          cause instanceof Error ? translateApiError(cause.message, t, locale) : undefined,
       });
     } finally {
       setSendingOtp(false);
@@ -165,35 +183,35 @@ export function HospitalDirectory() {
     event.preventDefault();
     const value = Number(amount);
     if (!donorName.trim()) {
-      toast({ tone: "danger", title: "Please tell us your name" });
+      toast({ tone: "danger", title: t("donate.errorNoName") });
       return;
     }
     if (!Number.isFinite(value) || value <= 0) {
-      toast({ tone: "danger", title: "Please enter a valid amount" });
+      toast({ tone: "danger", title: t("donate.errorNoAmount") });
       return;
     }
     if (isWallet && !phoneValid) {
       toast({
         tone: "danger",
-        title: "Enter the wallet's phone number",
-        description: "Myanmar mobile format, e.g. 09 7700 1122",
+        title: t("donate.errorNoPhone"),
+        description: t("donate.errorNoPhoneDescription"),
       });
       return;
     }
     if (isWallet && (!otpSent || otpInput.trim().length !== 6)) {
       toast({
         tone: "danger",
-        title: "Confirm the payment first",
-        description: "Send the verification code and enter the 6 digits.",
+        title: t("donate.errorNotConfirmed"),
+        description: t("donate.errorNotConfirmedDescription"),
       });
       return;
     }
     if (method === "card" && cardNumber.replace(/\D/g, "").length < 12) {
-      toast({ tone: "danger", title: "Please enter a valid card number" });
+      toast({ tone: "danger", title: t("donate.errorNoCard") });
       return;
     }
     if (method === "bank_transfer" && accountNumber.replace(/\D/g, "").length < 6) {
-      toast({ tone: "danger", title: "Please enter the account number" });
+      toast({ tone: "danger", title: t("donate.errorNoAccount") });
       return;
     }
 
@@ -216,10 +234,14 @@ export function HospitalDirectory() {
       if (!result.ok) throw new Error(result.error);
 
       const target =
-        hospitals.find((h) => h.id === hospitalId)?.short_name ?? "the general fund";
+        hospitals.find((h) => h.id === hospitalId)?.short_name ?? t("donate.generalFund");
       toast({
-        title: `Thank you, ${donorName.trim()}!`,
-        description: `MMK ${mmk.format(value)} via ${paymentMethodLabel[method]} recorded for ${target}.`,
+        title: t("donate.thankYouTitle", { name: donorName.trim() }),
+        description: t("donate.thankYouDescription", {
+          amount: mmk.format(value),
+          method: t(METHOD_KEYS[method]),
+          target,
+        }),
       });
       setAmount("");
       setMessage("");
@@ -233,8 +255,9 @@ export function HospitalDirectory() {
     } catch (cause) {
       toast({
         tone: "danger",
-        title: "Donation failed",
-        description: cause instanceof Error ? cause.message : undefined,
+        title: t("donate.donationFailedTitle"),
+        description:
+          cause instanceof Error ? translateApiError(cause.message, t, locale) : undefined,
       });
     } finally {
       setSubmitting(false);
@@ -247,11 +270,10 @@ export function HospitalDirectory() {
       <section id="hospitals" className="mx-auto w-full max-w-7xl px-5 py-12">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-semibold tracking-tight">
-            Hospitals in the network
+            {t("home.hospitalsTitle")}
           </h2>
           <p className="text-sm text-muted">
-            Live capacity from {hospitals.length || "the"} Yangon hospitals.
-            Donations go toward beds, supplies and ambulance readiness.
+            {t("home.hospitalsSub", { count: hospitals.length || "the" })}
           </p>
         </div>
 
@@ -280,20 +302,13 @@ export function HospitalDirectory() {
         <div className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-14 lg:grid-cols-[1fr_26rem] lg:items-center">
           <div className="flex flex-col gap-4 text-white">
             <h2 className="text-3xl font-semibold tracking-tight">
-              Your support keeps ambulances moving
+              {t("donate.title")}
             </h2>
             <p className="max-w-xl text-sm leading-relaxed text-white/75">
-              Every donation helps a hospital keep beds open, restock emergency
-              supplies and stay ready for the next call. Pick a hospital — or
-              give to the general fund and we&apos;ll route it where the need
-              is greatest.
+              {t("donate.body")}
             </p>
             <ul className="flex flex-col gap-2.5 text-sm text-white/90">
-              {[
-                "100% goes to the hospital you choose",
-                "Live totals shown on every hospital card",
-                "Demo only — no real payment is processed",
-              ].map((line) => (
+              {[t("donate.bullet1"), t("donate.bullet2"), t("donate.bullet3")].map((line) => (
                 <li key={line} className="flex items-center gap-2.5">
                   <HeartHandshake className="size-4 shrink-0 text-accent-soft" />
                   {line}
@@ -304,21 +319,21 @@ export function HospitalDirectory() {
 
           <Card>
             <CardBody className="flex flex-col gap-4">
-              <CardTitle>Make a donation</CardTitle>
+              <CardTitle>{t("donate.formTitle")}</CardTitle>
 
               <form className="flex flex-col gap-4" onSubmit={submit}>
-                <Field label="Your name" htmlFor="donor-name">
+                <Field label={t("donate.yourName")} htmlFor="donor-name">
                   <Input
                     id="donor-name"
                     value={donorName}
                     onChange={(e) => setDonorName(e.target.value)}
-                    placeholder="Daw Aye Aye"
+                    placeholder={t("donate.yourNamePlaceholder")}
                     maxLength={80}
                     required
                   />
                 </Field>
 
-                <Field label="Amount (MMK)" htmlFor="donor-amount">
+                <Field label={t("donate.amount")} htmlFor="donor-amount">
                   <Input
                     id="donor-amount"
                     type="number"
@@ -331,13 +346,13 @@ export function HospitalDirectory() {
                   />
                 </Field>
 
-                <Field label="Hospital" htmlFor="donor-hospital">
+                <Field label={t("donate.hospital")} htmlFor="donor-hospital">
                   <Select
                     id="donor-hospital"
                     value={hospitalId}
                     onChange={(e) => setHospitalId(e.target.value)}
                   >
-                    <option value="">General fund</option>
+                    <option value="">{t("donate.generalFund")}</option>
                     {hospitals.map((hospital) => (
                       <option key={hospital.id} value={hospital.id}>
                         {hospital.name}
@@ -348,7 +363,7 @@ export function HospitalDirectory() {
 
                 <div className="flex flex-col gap-1.5">
                   <span className="text-sm font-medium text-foreground">
-                    Payment method
+                    {t("donate.paymentMethod")}
                   </span>
                   <div className="grid grid-cols-2 gap-1.5">
                     {paymentMethods.map((option) => (
@@ -367,7 +382,7 @@ export function HospitalDirectory() {
                             : "border-border bg-background text-muted hover:border-accent/40 hover:text-foreground",
                         )}
                       >
-                        {paymentMethodLabel[option]}
+                        {t(METHOD_KEYS[option])}
                       </button>
                     ))}
                   </div>
@@ -376,9 +391,9 @@ export function HospitalDirectory() {
                 {isWallet ? (
                   <div className="flex flex-col gap-3">
                     <Field
-                      label={`${paymentMethodLabel[method]} phone number`}
+                      label={t("donate.walletPhone", { method: t(METHOD_KEYS[method]) })}
                       htmlFor="payer-phone"
-                      hint="The Myanmar mobile number the wallet is registered to."
+                      hint={t("donate.walletPhoneHint")}
                     >
                       <div className="flex gap-2">
                         <Input
@@ -402,7 +417,7 @@ export function HospitalDirectory() {
                           className="shrink-0"
                         >
                           {sendingOtp ? <Spinner /> : null}
-                          {otpSent ? "Resend code" : "Send code"}
+                          {otpSent ? t("donate.resendCode") : t("donate.sendCode")}
                         </Button>
                       </div>
                     </Field>
@@ -410,13 +425,13 @@ export function HospitalDirectory() {
                     {otpSent ? (
                       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
                         <p className="rounded-md border border-dashed border-accent/40 bg-accent-soft/60 px-3 py-2 font-mono text-xs text-accent-hover dark:text-accent">
-                          Demo SMS to {cleanPhone}: your {project.name} code is{" "}
+                          {t("donate.demoSmsPrefix", { phone: cleanPhone, name: project.name })}{" "}
                           <span className="font-semibold">{otpDemoCode}</span>
                         </p>
                         <Field
-                          label="Verification code"
+                          label={t("donate.verificationCode")}
                           htmlFor="otp-code"
-                          hint="Enter the 6-digit code to confirm the payment. Expires in 5 minutes."
+                          hint={t("donate.verificationCodeHint")}
                         >
                           <Input
                             id="otp-code"
@@ -435,7 +450,7 @@ export function HospitalDirectory() {
 
                 {method === "bank_transfer" ? (
                   <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
-                    <Field label="Bank" htmlFor="bank-name">
+                    <Field label={t("donate.bankName")} htmlFor="bank-name">
                       <Select
                         id="bank-name"
                         value={bank}
@@ -448,7 +463,7 @@ export function HospitalDirectory() {
                         ))}
                       </Select>
                     </Field>
-                    <Field label="Account number" htmlFor="account-number">
+                    <Field label={t("donate.accountNumber")} htmlFor="account-number">
                       <Input
                         id="account-number"
                         inputMode="numeric"
@@ -459,15 +474,13 @@ export function HospitalDirectory() {
                         maxLength={24}
                       />
                     </Field>
-                    <p className="text-xs text-muted">
-                      Demo — bank details never leave this page and are not stored.
-                    </p>
+                    <p className="text-xs text-muted">{t("donate.bankDemoNote")}</p>
                   </div>
                 ) : null}
 
                 {method === "card" ? (
                   <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
-                    <Field label="Name on card" htmlFor="card-name">
+                    <Field label={t("donate.nameOnCard")} htmlFor="card-name">
                       <Input
                         id="card-name"
                         autoComplete="off"
@@ -477,7 +490,7 @@ export function HospitalDirectory() {
                         maxLength={60}
                       />
                     </Field>
-                    <Field label="Card number" htmlFor="card-number">
+                    <Field label={t("donate.cardNumber")} htmlFor="card-number">
                       <Input
                         id="card-number"
                         inputMode="numeric"
@@ -489,7 +502,7 @@ export function HospitalDirectory() {
                       />
                     </Field>
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Expiry" htmlFor="card-expiry">
+                      <Field label={t("donate.expiry")} htmlFor="card-expiry">
                         <Input
                           id="card-expiry"
                           autoComplete="off"
@@ -499,7 +512,7 @@ export function HospitalDirectory() {
                           maxLength={5}
                         />
                       </Field>
-                      <Field label="CVC" htmlFor="card-cvc">
+                      <Field label={t("donate.cvc")} htmlFor="card-cvc">
                         <Input
                           id="card-cvc"
                           inputMode="numeric"
@@ -509,18 +522,16 @@ export function HospitalDirectory() {
                         />
                       </Field>
                     </div>
-                    <p className="text-xs text-muted">
-                      Demo — card details never leave this page and are not stored.
-                    </p>
+                    <p className="text-xs text-muted">{t("donate.cardDemoNote")}</p>
                   </div>
                 ) : null}
 
-                <Field label="Message (optional)" htmlFor="donor-message">
+                <Field label={t("donate.message")} htmlFor="donor-message">
                   <Textarea
                     id="donor-message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Stay strong!"
+                    placeholder={t("donate.messagePlaceholder")}
                     maxLength={500}
                     className="min-h-16"
                   />
@@ -529,13 +540,11 @@ export function HospitalDirectory() {
                 <Button type="submit" disabled={submitting}>
                   {submitting ? <Spinner /> : null}
                   {amount && Number(amount) > 0
-                    ? `Donate MMK ${mmk.format(Number(amount))}`
-                    : "Donate"}
+                    ? t("donate.submitAmount", { amount: mmk.format(Number(amount)) })
+                    : t("donate.submit")}
                 </Button>
 
-                <p className="text-center text-xs text-muted">
-                  Demo only — no real payment is processed.
-                </p>
+                <p className="text-center text-xs text-muted">{t("donate.demoDisclaimer")}</p>
               </form>
             </CardBody>
           </Card>

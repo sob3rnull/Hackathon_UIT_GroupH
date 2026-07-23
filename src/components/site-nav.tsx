@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { project } from "@/config/project";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
+
+/** project.nav order → the dictionary's nav.* key for that route. */
+const NAV_KEYS = ["dispatcher", "hospital", "ambulance", "history"] as const;
 
 /**
  * Role switcher. Split out of SiteHeader because the active-link state needs
@@ -15,10 +19,11 @@ import { cn } from "@/lib/utils";
  */
 export function SiteNav({ className }: { className?: string }) {
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <nav className={cn("flex items-center gap-1", className)}>
-      {project.nav.map((link) => {
+      {project.nav.map((link, index) => {
         const active =
           pathname === link.href || pathname.startsWith(`${link.href}/`);
 
@@ -34,7 +39,7 @@ export function SiteNav({ className }: { className?: string }) {
                 : "text-muted hover:bg-surface-muted hover:text-foreground",
             )}
           >
-            {link.label}
+            {t(`nav.${NAV_KEYS[index]}.label`)}
           </Link>
         );
       })}

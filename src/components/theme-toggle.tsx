@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import { useT } from "@/lib/i18n/context";
 
 /**
  * Flips `.dark` on <html> and remembers the choice.
@@ -9,6 +10,7 @@ import { Moon, Sun } from "lucide-react";
  */
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     // One-time sync with the DOM class the no-flash script in layout.tsx
@@ -27,7 +29,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={dark ? t("chrome.switchToLight") : t("chrome.switchToDark")}
       className="inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
     >
       {dark ? <Moon className="size-4" /> : <Sun className="size-4" />}

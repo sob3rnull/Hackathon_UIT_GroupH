@@ -10,6 +10,7 @@ import {
   googleMapsAvailable,
 } from "@/components/mediroute/google-map";
 import { backendMode } from "@/lib/mediroute/backend";
+import { useT } from "@/lib/i18n/context";
 import type { Ambulance, Hospital, LatLng } from "@/lib/mediroute/types";
 
 /**
@@ -46,14 +47,13 @@ export function MapPanel({
   excludedIds: Set<string>;
   onPickOrigin: (point: LatLng) => void;
 }) {
+  const t = useT();
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <CardTitle>Live map</CardTitle>
-          <CardDescription>
-            Click to move the incident. Squares are ambulances reporting GPS.
-          </CardDescription>
+          <CardTitle>{t("dispatcher.liveMap")}</CardTitle>
+          <CardDescription>{t("dispatcher.mapClickHint")}</CardDescription>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -61,17 +61,17 @@ export function MapPanel({
             <button
               onClick={onToggleMapMode}
               className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition-colors hover:bg-surface-muted hover:text-foreground"
-              title="Switch between the Google basemap and the offline map"
+              title={t("dispatcher.switchMapTitle")}
             >
-              {mapMode === "google" ? "Offline map" : "Google map"}
+              {mapMode === "google" ? t("dispatcher.offlineMap") : t("dispatcher.googleMap")}
             </button>
           ) : null}
           <Badge tone={backendMode === "n8n" ? "accent" : "neutral"}>
-            {backendMode === "n8n" ? "n8n backend" : "local backend"}
+            {backendMode === "n8n" ? t("dispatcher.n8nBackend") : t("dispatcher.localBackend")}
           </Badge>
           <Badge tone={live ? "success" : "neutral"}>
             <Radio className="size-3" />
-            {live ? "Realtime" : "Polling"}
+            {live ? t("dispatcher.realtime") : t("dispatcher.polling")}
           </Badge>
         </div>
       </CardHeader>

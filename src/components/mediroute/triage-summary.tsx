@@ -6,6 +6,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Field, Select } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/states";
 import { SeverityBadge } from "@/components/mediroute/status";
+import { useT } from "@/lib/i18n/context";
 import {
   conditions,
   severities,
@@ -34,23 +35,23 @@ export function TriageSummary({
   sourceNote: string | null;
   onPatch: (patch: Partial<Triage>) => void;
 }) {
+  const t = useT();
+
   if (!triage) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Stethoscope className="size-4" />
-            AI triage summary
+            {t("triageSummary.title")}
           </CardTitle>
-          <CardDescription>
-            Appears once triage runs. You can correct anything it gets wrong.
-          </CardDescription>
+          <CardDescription>{t("triageSummary.appearsOnceRun")}</CardDescription>
         </CardHeader>
         <CardBody>
           <EmptyState
             icon={<Stethoscope className="size-6" />}
-            title="No triage yet"
-            body="Run triage on the patient description to see the condition, severity and required specialty."
+            title={t("triageSummary.noTriageYet")}
+            body={t("triageSummary.noTriageBody")}
           />
         </CardBody>
       </Card>
@@ -62,18 +63,20 @@ export function TriageSummary({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Stethoscope className="size-4" />
-          AI triage summary
+          {t("triageSummary.title")}
         </CardTitle>
         <CardDescription>
           {source === "claude" ? (
             <span className="text-success">
-              Extracted by Claude · {Math.round(triage.confidence * 100)}% confidence
+              {t("triageSummary.confidence", { percent: Math.round(triage.confidence * 100) })}
             </span>
           ) : source === "manual" ? (
-            <span>Corrected manually</span>
+            <span>{t("triageSummary.correctedManually")}</span>
           ) : (
             <span className="text-warning">
-              Keyword fallback — not AI · {Math.round(triage.confidence * 100)}%
+              {t("triageSummary.keywordFallback", {
+                percent: Math.round(triage.confidence * 100),
+              })}
             </span>
           )}
         </CardDescription>
@@ -88,31 +91,37 @@ export function TriageSummary({
 
         <div className="flex flex-wrap gap-2">
           <SeverityBadge severity={triage.severity} />
-          <Badge tone="accent">{triage.requiredSpecialty}</Badge>
-          {triage.needsICU ? <Badge tone="danger">ICU needed</Badge> : null}
+          <Badge tone="accent">{t(`status.specialty.${triage.requiredSpecialty}`)}</Badge>
+          {triage.needsICU ? (
+            <Badge tone="danger">{t("triageSummary.needsIcuBadge")}</Badge>
+          ) : null}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Condition" htmlFor="condition">
+          <Field label={t("triageSummary.condition")} htmlFor="condition">
             <Select
               id="condition"
               value={triage.condition}
               onChange={(e) => onPatch({ condition: e.target.value as Condition })}
             >
               {conditions.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {t(`status.condition.${c}`)}
+                </option>
               ))}
             </Select>
           </Field>
 
-          <Field label="Severity" htmlFor="severity">
+          <Field label={t("triageSummary.severity")} htmlFor="severity">
             <Select
               id="severity"
               value={triage.severity}
               onChange={(e) => onPatch({ severity: e.target.value as Severity })}
             >
               {severities.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {t(`status.severity.${s}`)}
+                </option>
               ))}
             </Select>
           </Field>
@@ -125,14 +134,12 @@ export function TriageSummary({
             onChange={(e) => onPatch({ needsICU: e.target.checked })}
             className="size-4 accent-[var(--accent)]"
           />
-          Needs ICU on arrival
+          {t("triageSummary.needsIcu")}
         </label>
 
         {triage.redFlags.length ? (
           <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-            <p className="text-xs font-medium text-muted">
-              Findings from the description
-            </p>
+            <p className="text-xs font-medium text-muted">{t("triageSummary.findings")}</p>
             <ul className="flex flex-col gap-1">
               {triage.redFlags.map((flag, index) => (
                 <li key={index} className="flex gap-2 text-sm">

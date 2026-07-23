@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Languages, Mic, Square } from "lucide-react";
 import { Spinner } from "@/components/ui/states";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateApiError } from "@/lib/i18n/translate-error";
 import { cn } from "@/lib/utils";
 import type { ApiResult } from "@/lib/mediroute/types";
 
@@ -51,9 +53,9 @@ interface SpeechRecognitionLike {
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 type SpeechLanguage = "my-MM" | "en-US";
 
-const speechLanguages: { code: SpeechLanguage; label: string }[] = [
-  { code: "my-MM", label: "Burmese" },
-  { code: "en-US", label: "English" },
+const speechLanguages: { code: SpeechLanguage; labelKey: string }[] = [
+  { code: "my-MM", labelKey: "voice.languageBurmese" },
+  { code: "en-US", labelKey: "voice.languageEnglish" },
 ];
 
 function getRecognitionCtor(): SpeechRecognitionCtor | null {
@@ -84,6 +86,8 @@ export function VoiceInput({
   onListeningChange?: (listening: boolean) => void;
   disabled?: boolean;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   const [path, setPath] = useState<CapturePath>("checking");
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -145,7 +149,7 @@ export function VoiceInput({
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setError("Microphone permission denied");
+      setError(t("voice.micDenied"));
       return;
     }
 
@@ -189,15 +193,17 @@ export function VoiceInput({
       const result: ApiResult<{ text: string }> = await response.json();
       if (!result.ok) throw new Error(result.error);
       if (!result.data.text) {
-        setError("Nothing heard — try again closer to the microphone");
+        setError(t("voice.nothingHeard"));
         return;
       }
       onTranscript(result.data.text);
     } catch (cause) {
       setError(
         cause instanceof Error
-          ? `Transcription failed: ${cause.message}`
-          : "Transcription failed — type the note instead",
+          ? t("voice.transcriptionFailed", {
+              message: translateApiError(cause.message, t, locale),
+            })
+          : t("voice.transcriptionFailedGeneric"),
       );
     } finally {
       setTranscribing(false);
@@ -232,10 +238,10 @@ export function VoiceInput({
     recognition.onerror = (event) => {
       setError(
         event.error === "not-allowed"
-          ? "Microphone permission denied"
+          ? t("voice.micDenied")
           : event.error === "network"
-            ? "Speech service unreachable — type the note instead"
-            : `Voice input error: ${event.error}`,
+            ? t("voice.speechUnreachable")
+            : t("voice.voiceError", { error: event.error }),
       );
       setListening(false);
       onListeningChange?.(false);
@@ -260,11 +266,7 @@ export function VoiceInput({
   if (path === "checking") return null;
 
   if (path === "none") {
-    return (
-      <p className="text-xs text-muted">
-        Voice input needs Chrome or Edge — type the note instead.
-      </p>
-    );
+    return <p className="text-xs text-muted">{t("voice.needsChromeEdge")}</p>;
   }
 
   const busy = disabled || transcribing;
@@ -291,7 +293,7 @@ export function VoiceInput({
                 "disabled:pointer-events-none disabled:opacity-50",
               )}
             >
-              {option.label}
+              {t(option.labelKey)}
             </button>
           ))}
         </div>
@@ -311,18 +313,18 @@ export function VoiceInput({
           {transcribing ? (
             <>
               <Spinner />
-              Transcribing…
+              {t("voice.transcribing")}
             </>
           ) : listening ? (
             <>
               <Square className="size-3.5 fill-current" />
-              Stop dictating
+              {t("voice.stopDictating")}
               <span className="ml-1 inline-flex size-2 animate-pulse rounded-full bg-white" />
             </>
           ) : (
             <>
               <Mic className="size-4" />
-              Dictate
+              {t("voice.dictate")}
             </>
           )}
         </button>
@@ -331,15 +333,11 @@ export function VoiceInput({
       {error ? <p className="text-xs text-danger">{error}</p> : null}
       {listening ? (
         <p className="text-xs text-muted">
-          {path === "server"
-            ? "Recording — speak, then press stop to transcribe."
-            : "Listening — speak the patient description."}
+          {path === "server" ? t("voice.listeningServer") : t("voice.listeningBrowser")}
         </p>
       ) : null}
       <p className="text-xs text-muted">
-        {path === "server"
-          ? "Transcribed on the server (Whisper) — works on any browser."
-          : "Uses the browser's speech service — needs Chrome/Edge and open internet."}
+        {path === "server" ? t("voice.hintServer") : t("voice.hintBrowser")}
       </p>
     </div>
   );

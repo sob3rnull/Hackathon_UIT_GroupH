@@ -20,9 +20,10 @@ import { useToast } from "@/components/ui/toast";
 import {
   AmbulanceStatusBadge,
   SeverityBadge,
-  ambulanceStatusLabel,
   crewStages,
 } from "@/components/mediroute/status";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateApiError } from "@/lib/i18n/translate-error";
 import { HospitalChoiceList } from "@/components/mediroute/hospital-choice-list";
 import { ReasonList } from "@/components/mediroute/reasons";
 import { AmbulanceRouteMap } from "@/components/mediroute/ambulance-route-map";
@@ -63,6 +64,8 @@ import { cn } from "@/lib/utils";
  * the rest of the app (History, the dispatcher's timeline).
  */
 export function AmbulanceDashboard() {
+  const t = useT();
+  const { locale } = useLocale();
   const { ambulances, loading, error, reload } = useFleet();
   const { hospitals } = useHospitals();
   const { dispatches, reload: reloadDispatches } = useDispatches();
@@ -242,27 +245,34 @@ export function AmbulanceDashboard() {
       await reload();
       toast({ title: `${vehicle.callsign} — ${label}` });
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Update failed";
+      const message =
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("hospitalPanel.updateFailed");
       setWriteError(message);
-      toast({ title: "Could not update status", description: message, tone: "danger" });
+      toast({ title: t("ambulancePage.couldNotUpdateStatus"), description: message, tone: "danger" });
     } finally {
       setBusy(false);
     }
   }
 
-  async function rankHospitals(t: Triage) {
+  async function rankHospitals(triageInput: Triage) {
     if (!mission || mission.incident_lat == null || mission.incident_lng == null) return;
     setPlanLoading(true);
     setWriteError(null);
     try {
-      const rec = await getHospitalPlan(t, {
+      const rec = await getHospitalPlan(triageInput, {
         lat: mission.incident_lat,
         lng: mission.incident_lng,
       });
       setHospitalPlan(rec);
       setPickedHospitalId(rec.ranked[0]?.hospital.id ?? null);
     } catch (cause) {
-      setWriteError(cause instanceof Error ? cause.message : "Could not rank hospitals");
+      setWriteError(
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("ambulancePage.couldNotRankHospitals"),
+      );
     } finally {
       setPlanLoading(false);
     }
@@ -279,7 +289,11 @@ export function AmbulanceDashboard() {
       setTriageSourceNote(result.note ?? null);
       await rankHospitals(result.triage);
     } catch (cause) {
-      setWriteError(cause instanceof Error ? cause.message : "Triage failed");
+      setWriteError(
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("errors.triageFailed"),
+      );
     } finally {
       setTriaging(false);
     }
@@ -316,13 +330,18 @@ export function AmbulanceDashboard() {
       });
       await reloadDispatches();
       toast({
-        title: `Routing to ${chosen.hospital.short_name}`,
-        description: `${Math.round(chosen.etaMinutes)} min transport.`,
+        title: t("ambulancePage.routingTo", { name: chosen.hospital.short_name }),
+        description: t("ambulancePage.transportMinDot", {
+          count: Math.round(chosen.etaMinutes),
+        }),
       });
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Could not confirm";
+      const message =
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("ambulancePage.couldNotConfirm");
       setWriteError(message);
-      toast({ title: "Could not confirm", description: message, tone: "danger" });
+      toast({ title: t("ambulancePage.couldNotConfirm"), description: message, tone: "danger" });
     } finally {
       setConfirming(false);
     }
@@ -335,8 +354,8 @@ export function AmbulanceDashboard() {
     return (
       <EmptyState
         icon={<AmbulanceIcon className="size-6" />}
-        title="No vehicle assigned to your account"
-        body="Your crew account isn't bound to a vehicle yet. Complete setup on your profile, then sign in again."
+        title={t("ambulancePage.noVehicleBoundTitle")}
+        body={t("ambulancePage.noVehicleBoundBody")}
       />
     );
   }
@@ -360,17 +379,22 @@ export function AmbulanceDashboard() {
               {!vehicle.certified ? (
                 <Badge tone="danger">
                   <ShieldOff className="size-3" />
-                  Uncertified
+                  {t("ambulancePage.uncertified")}
                 </Badge>
               ) : null}
             </div>
             <p className="text-sm text-muted">
-              {vehicle.operator} · {vehicle.crew_level} crew
+              {t("ambulancePage.operatorCrew", {
+                operator: vehicle.operator,
+                crew: t(vehicle.crew_level === "advanced" ? "ambulancePage.crewAdvanced" : "ambulancePage.crewBasic"),
+              })}
             </p>
           </div>
 
           <div className="text-right text-sm text-muted">
-            <span className="block text-xs uppercase tracking-wide">Your vehicle</span>
+            <span className="block text-xs uppercase tracking-wide">
+              {t("ambulancePage.yourVehicle")}
+            </span>
             <span className="text-base font-semibold text-foreground">{vehicle.callsign}</span>
           </div>
         </CardBody>
@@ -381,11 +405,7 @@ export function AmbulanceDashboard() {
       {!vehicle.certified ? (
         <div className="flex items-start gap-2 rounded-card border border-danger/50 bg-danger/12 px-4 py-3">
           <ShieldOff className="mt-0.5 size-4 shrink-0 text-danger" />
-          <span className="text-sm text-danger">
-            <strong>This vehicle is not certified.</strong> Without a fitted IoT
-            unit reporting GPS it will never be assigned a run, however close it
-            is to an incident.
-          </span>
+          <span className="text-sm text-danger">{t("ambulancePage.uncertifiedInlineWarning")}</span>
         </div>
       ) : null}
 
@@ -393,17 +413,17 @@ export function AmbulanceDashboard() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle className="text-lg">Current mission</CardTitle>
+            <CardTitle className="text-lg">{t("ambulancePage.currentMission")}</CardTitle>
             {activeMission && missionCompleted ? (
-              <Badge tone="success">Completed</Badge>
+              <Badge tone="success">{t("ambulancePage.completed")}</Badge>
             ) : null}
           </div>
           <CardDescription>
             {activeMission
               ? missionCompleted
-                ? "This run is complete — it'll clear shortly."
-                : "Assigned by dispatch. Run triage yourself, then pick where you're taking the patient."
-              : "Nothing assigned right now."}
+                ? t("ambulancePage.runComplete")
+                : t("ambulancePage.missionAssigned")
+              : t("ambulancePage.missionNone")}
           </CardDescription>
         </CardHeader>
 
@@ -411,27 +431,33 @@ export function AmbulanceDashboard() {
           {!mission || (missionCompleted && hideDone) ? (
             <EmptyState
               icon={<AmbulanceIcon className="size-6" />}
-              title="Standing by"
-              body="You'll see the patient, the destination and the route here the moment dispatch assigns this vehicle."
+              title={t("ambulancePage.standingBy")}
+              body={t("ambulancePage.standingByBody")}
             />
           ) : (
             <div className="flex flex-col gap-5">
               {knownTriage ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <SeverityBadge severity={knownTriage.severity} />
-                  <Badge tone="neutral">{knownTriage.condition}</Badge>
-                  {knownTriage.needsICU ? <Badge tone="danger">ICU on arrival</Badge> : null}
-                  <Badge tone="neutral">needs {knownTriage.requiredSpecialty}</Badge>
+                  <Badge tone="neutral">{t(`status.condition.${knownTriage.condition}`)}</Badge>
+                  {knownTriage.needsICU ? (
+                    <Badge tone="danger">{t("ambulancePage.icuOnArrival")}</Badge>
+                  ) : null}
+                  <Badge tone="neutral">
+                    {t("ambulancePage.needsSpecialty", {
+                      specialty: t(`status.specialty.${knownTriage.requiredSpecialty}`),
+                    })}
+                  </Badge>
                 </div>
               ) : null}
 
               {mission.hospital_id ? (
                 <div className="flex flex-col gap-1.5">
                   <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                    Patient
+                    {t("ambulancePage.patientLabel")}
                   </p>
                   <p className="text-lg leading-snug">
-                    {mission.patient_note || "No description recorded"}
+                    {mission.patient_note || t("ambulancePage.noDescriptionRecorded")}
                   </p>
                 </div>
               ) : null}
@@ -442,10 +468,10 @@ export function AmbulanceDashboard() {
                     <MapPin className="mt-1 size-5 shrink-0 text-danger" />
                     <div className="min-w-0">
                       <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                        Scene
+                        {t("ambulancePage.scene")}
                       </p>
                       <p className="text-lg font-medium">
-                        {Math.round(mission.response_eta_minutes)} min out
+                        {t("ambulancePage.minOut", { count: Math.round(mission.response_eta_minutes) })}
                       </p>
                     </div>
                   </div>
@@ -454,12 +480,12 @@ export function AmbulanceDashboard() {
                     <HospitalIcon className="mt-1 size-5 shrink-0 text-accent" />
                     <div className="min-w-0">
                       <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                        Destination
+                        {t("ambulancePage.destinationLabel")}
                       </p>
                       <p className="text-lg font-medium">{destination.short_name}</p>
                       <p className="flex items-center gap-1 text-xs text-muted">
                         <Timer className="size-3" />
-                        {Math.round(mission.eta_minutes)} min transport
+                        {t("ambulancePage.minTransport", { count: Math.round(mission.eta_minutes) })}
                       </p>
                     </div>
                   </div>
@@ -469,13 +495,15 @@ export function AmbulanceDashboard() {
                   <MapPin className="mt-1 size-5 shrink-0 text-danger" />
                   <div className="min-w-0">
                     <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                      Scene
+                      {t("ambulancePage.scene")}
                     </p>
                     <p className="text-lg font-medium">
-                      {Math.round(mission.response_eta_minutes)} min out
+                      {t("ambulancePage.minOut", { count: Math.round(mission.response_eta_minutes) })}
                     </p>
                     <p className="text-xs text-muted">
-                      {needsTriage ? "Run triage below" : "Choose the destination below"}
+                      {needsTriage
+                        ? t("ambulancePage.runTriageBelow")
+                        : t("ambulancePage.chooseDestinationBelow")}
                     </p>
                   </div>
                 </div>
@@ -489,11 +517,11 @@ export function AmbulanceDashboard() {
       {needsTriage ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Patient description</CardTitle>
+            <CardTitle className="text-lg">{t("ambulancePage.patientDescriptionTitle")}</CardTitle>
             <CardDescription>
               {mission?.patient_note
-                ? "Dispatch's note is pre-filled below — extend it, then run triage."
-                : "Dispatch sent no note. Describe the patient, then run triage."}
+                ? t("ambulancePage.prefilledNote")
+                : t("ambulancePage.noNoteSent")}
             </CardDescription>
           </CardHeader>
           <CardBody className="flex flex-col gap-4">
@@ -505,13 +533,13 @@ export function AmbulanceDashboard() {
               onTranscript={setCrewNote}
             />
 
-            <Field label="Description" htmlFor="crew-note">
+            <Field label={t("ambulancePage.descriptionLabel")} htmlFor="crew-note">
               <Textarea
                 id="crew-note"
                 value={crewNote}
                 onChange={(event) => setCrewNote(event.target.value)}
                 rows={4}
-                placeholder="e.g. 30F, motorcycle collision, open tibia fracture, alert"
+                placeholder={t("ambulancePage.notePlaceholder")}
               />
             </Field>
 
@@ -521,12 +549,10 @@ export function AmbulanceDashboard() {
               className="self-start"
             >
               {triaging ? <Spinner /> : <Sparkles className="size-4" />}
-              {triaging ? "Triaging…" : "Run triage"}
+              {triaging ? t("ambulancePage.triaging") : t("ambulancePage.runTriage")}
             </Button>
             {aiAvailable === false ? (
-              <p className="text-xs text-warning">
-                No <code>ANTHROPIC_API_KEY</code> set — using the keyword fallback.
-              </p>
+              <p className="text-xs text-warning">{t("ambulancePage.noApiKeyWarning")}</p>
             ) : null}
           </CardBody>
         </Card>
@@ -550,7 +576,7 @@ export function AmbulanceDashboard() {
 
           {planLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted">
-              <Spinner /> Ranking hospitals…
+              <Spinner /> {t("ambulancePage.rankingHospitals")}
             </div>
           ) : null}
 
@@ -558,9 +584,9 @@ export function AmbulanceDashboard() {
             <Card className="border-accent/40">
               <CardHeader className="flex-row items-center justify-between">
                 <div className="flex flex-col gap-1">
-                  <CardTitle>Recommended because</CardTitle>
+                  <CardTitle>{t("ambulancePage.recommendedBecause")}</CardTitle>
                   <CardDescription>
-                    {pickedEntry.hospital.short_name} · confirming locks in the route
+                    {t("ambulancePage.confirmingLocks", { name: pickedEntry.hospital.short_name })}
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -572,7 +598,7 @@ export function AmbulanceDashboard() {
                   className="self-start"
                 >
                   <Check className="size-4" />
-                  {confirming ? "Confirming…" : "Confirm hospital & route"}
+                  {confirming ? t("ambulancePage.confirming") : t("ambulancePage.confirmHospitalRoute")}
                 </Button>
               </CardBody>
             </Card>
@@ -586,7 +612,7 @@ export function AmbulanceDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <RouteIcon className="size-4" />
-              Route
+              {t("ambulancePage.routeTitle")}
             </CardTitle>
             <CardDescription>
               {currentLeg.originLabel} → {currentLeg.destinationLabel}
@@ -607,10 +633,9 @@ export function AmbulanceDashboard() {
       {/* ── Status ───────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Update status</CardTitle>
+          <CardTitle className="text-lg">{t("ambulancePage.updateStatusTitle")}</CardTitle>
           <CardDescription>
-            Currently <strong>{ambulanceStatusLabel[vehicle.status]}</strong>.
-            Dispatch sees this immediately.
+            {t("ambulancePage.currentlyStatus", { status: t(`status.ambulance.${vehicle.status}`) })}
           </CardDescription>
         </CardHeader>
 
@@ -621,8 +646,8 @@ export function AmbulanceDashboard() {
 
             return (
               <button
-                key={stage.action}
-                onClick={() => advance(stage.status, stage.done)}
+                key={stage.status}
+                onClick={() => advance(stage.status, t(stage.doneKey))}
                 disabled={busy || isCurrent}
                 className={cn(
                   "flex min-h-24 flex-col items-center justify-center gap-1 rounded-card border p-4",
@@ -636,11 +661,11 @@ export function AmbulanceDashboard() {
                 )}
               >
                 <span className="text-xs font-normal text-muted">
-                  Step {index + 1}
+                  {t("ambulancePage.step", { index: index + 1 })}
                 </span>
-                <span className="text-lg">{isCurrent ? stage.done : stage.action}</span>
+                <span className="text-lg">{t(isCurrent ? stage.doneKey : stage.actionKey)}</span>
                 {isCurrent ? (
-                  <span className="text-xs font-normal">Current status</span>
+                  <span className="text-xs font-normal">{t("ambulancePage.stepCurrentStatus")}</span>
                 ) : null}
               </button>
             );
@@ -651,8 +676,10 @@ export function AmbulanceDashboard() {
       {runHistory.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Run history</CardTitle>
-            <CardDescription>Completed runs for {vehicle.callsign}.</CardDescription>
+            <CardTitle className="text-lg">{t("ambulancePage.runHistoryTitle")}</CardTitle>
+            <CardDescription>
+              {t("ambulancePage.runHistoryDesc", { callsign: vehicle.callsign })}
+            </CardDescription>
           </CardHeader>
           <CardBody className="flex flex-col gap-2">
             {runHistory.map((d) => (
@@ -661,13 +688,17 @@ export function AmbulanceDashboard() {
                 className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0 last:pb-0"
               >
                 <div>
-                  <p className="text-sm font-medium">{d.patient_note || d.condition}</p>
+                  <p className="text-sm font-medium">
+                    {d.patient_note || t(`status.condition.${d.condition}`)}
+                  </p>
                   <p className="text-xs text-muted">
-                    {d.condition} · {d.severity}
+                    {t(`status.condition.${d.condition}`)} · {t(`status.severity.${d.severity}`)}
                   </p>
                 </div>
                 <span className="shrink-0 text-xs text-muted">
-                  {d.arrived_at ? new Date(d.arrived_at).toLocaleDateString() : "—"}
+                  {d.arrived_at
+                    ? new Date(d.arrived_at).toLocaleDateString()
+                    : t("ambulancePage.noDateDash")}
                 </span>
               </div>
             ))}

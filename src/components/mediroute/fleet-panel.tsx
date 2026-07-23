@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
 import { ErrorState, Skeleton } from "@/components/ui/states";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateApiError } from "@/lib/i18n/translate-error";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { ambulanceStatuses, type Ambulance, type AmbulanceStatus } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
@@ -19,6 +21,8 @@ import { cn } from "@/lib/utils";
  * actual hardware in the room.
  */
 export function FleetPanel() {
+  const t = useT();
+  const { locale } = useLocale();
   const { ambulances, loading, error, live, reload } = useFleet();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -51,7 +55,11 @@ export function FleetPanel() {
       if (!result.ok) throw new Error(result.error);
       await reload();
     } catch (cause) {
-      setWriteError(cause instanceof Error ? cause.message : "Update failed");
+      setWriteError(
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("fleet.updateFailed"),
+      );
     } finally {
       setBusyId(null);
     }
@@ -65,11 +73,9 @@ export function FleetPanel() {
       <div className="flex items-center gap-2">
         <Badge tone={live ? "success" : "neutral"}>
           <Radio className="size-3" />
-          {live ? "Broadcasting live" : "Polling mode"}
+          {live ? t("hospitalPanel.broadcastingLive") : t("hospitalPanel.pollingMode")}
         </Badge>
-        <p className="text-sm text-muted">
-          Stands in for the on-board IoT units reporting position and status.
-        </p>
+        <p className="text-sm text-muted">{t("fleet.standInFor")}</p>
       </div>
 
       {writeError ? <ErrorState message={writeError} /> : null}
@@ -94,36 +100,47 @@ export function FleetPanel() {
                       ) : (
                         <ShieldOff className="size-3" />
                       )}
-                      {ambulance.certified ? "Certified" : "Uncertified"}
+                      {ambulance.certified ? t("fleet.certified") : t("fleet.uncertified")}
                     </Badge>
                   </CardTitle>
                   <CardDescription>
-                    {ambulance.operator} · {ambulance.crew_level} crew ·{" "}
-                    {ambulance.device_id ?? "no IoT unit fitted"}
+                    {t("fleet.crewLine", {
+                      operator: ambulance.operator,
+                      crew: t(
+                        ambulance.crew_level === "advanced"
+                          ? "ambulancePage.crewAdvanced"
+                          : "ambulancePage.crewBasic",
+                      ),
+                      device: ambulance.device_id ?? t("fleet.noIotUnitFitted"),
+                    })}
                   </CardDescription>
                 </div>
               </CardHeader>
 
               <CardBody className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="min-w-0 flex-1 text-sm font-medium">Status</span>
+                  <span className="min-w-0 flex-1 text-sm font-medium">
+                    {t("fleet.statusLabel")}
+                  </span>
                   <Select
                     value={ambulance.status}
                     disabled={busy}
-                    aria-label={`Status for ${ambulance.callsign}`}
+                    aria-label={t("fleet.statusForAria", { callsign: ambulance.callsign })}
                     onChange={(e) =>
                       patch(ambulance, { status: e.target.value as AmbulanceStatus })
                     }
                     className="h-8 w-40 text-xs"
                   >
                     {ambulanceStatuses.map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {t(`status.ambulance.${s}`)}
+                      </option>
                     ))}
                   </Select>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">GPS fix</span>
+                  <span className="font-medium">{t("fleet.gpsFixLabel")}</span>
                   <span
                     className={cn(
                       "font-mono text-xs",
@@ -131,10 +148,10 @@ export function FleetPanel() {
                     )}
                   >
                     {fixAge === null
-                      ? "none"
+                      ? t("fleet.none")
                       : fixAge < 1
-                        ? "just now"
-                        : `${fixAge} min ago`}
+                        ? t("fleet.justNow")
+                        : t("fleet.minAgo", { count: fixAge })}
                   </span>
                 </div>
 
@@ -150,7 +167,7 @@ export function FleetPanel() {
                     }
                     className="rounded-lg border border-border px-3 py-1.5 text-xs transition-colors hover:bg-surface-muted disabled:opacity-40"
                   >
-                    Report fresh GPS fix
+                    {t("fleet.reportFix")}
                   </button>
 
                   <button
@@ -158,7 +175,7 @@ export function FleetPanel() {
                     onClick={() => patch(ambulance, { certified: !ambulance.certified })}
                     className="rounded-lg border border-border px-3 py-1.5 text-xs transition-colors hover:bg-surface-muted disabled:opacity-40"
                   >
-                    {ambulance.certified ? "Revoke certification" : "Certify (device fitted)"}
+                    {ambulance.certified ? t("fleet.revoke") : t("fleet.certify")}
                   </button>
                 </div>
               </CardBody>

@@ -14,6 +14,7 @@ import { Input, Select } from "@/components/ui/field";
 import { Stat, StatGrid } from "@/components/ui/stat";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/states";
 import { SeverityBadge } from "@/components/mediroute/status";
+import { useT } from "@/lib/i18n/context";
 import { useDispatches, type DispatchRecord } from "@/lib/mediroute/use-dispatches";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
@@ -31,7 +32,16 @@ import { timeAgo } from "@/lib/utils";
  * row is complete by definition. Nothing new is stored to make this work.
  */
 
-type IncidentStatus = { label: string; tone: "neutral" | "accent" | "success" | "warning" };
+type StatusKey = "completed" | "transporting" | "onScene" | "enRoute";
+type IncidentStatus = { labelKey: StatusKey; tone: "neutral" | "accent" | "success" | "warning" };
+
+/** StatusKey → the dictionary's history.status* key. */
+const STATUS_LABEL_KEYS: Record<StatusKey, string> = {
+  completed: "history.statusCompleted",
+  transporting: "history.statusTransporting",
+  onScene: "history.statusOnScene",
+  enRoute: "history.statusEnRoute",
+};
 
 function deriveStatuses(
   dispatches: DispatchRecord[],
@@ -51,19 +61,19 @@ function deriveStatuses(
     if (dispatch.ambulance_id) seenVehicles.add(dispatch.ambulance_id);
 
     if (!isCurrentRun || !vehicle || vehicle.status === "available") {
-      statuses.set(dispatch.id, { label: "Completed", tone: "neutral" });
+      statuses.set(dispatch.id, { labelKey: "completed", tone: "neutral" });
       continue;
     }
 
     statuses.set(
       dispatch.id,
       vehicle.status === "transporting"
-        ? { label: "Transporting", tone: "accent" }
+        ? { labelKey: "transporting", tone: "accent" }
         : vehicle.status === "on_scene"
-          ? { label: "On scene", tone: "accent" }
+          ? { labelKey: "onScene", tone: "accent" }
           : vehicle.status === "dispatched"
-            ? { label: "En route", tone: "warning" }
-            : { label: "Completed", tone: "neutral" },
+            ? { labelKey: "enRoute", tone: "warning" }
+            : { labelKey: "completed", tone: "neutral" },
     );
   }
 
@@ -71,6 +81,7 @@ function deriveStatuses(
 }
 
 export function HistoryPanel() {
+  const t = useT();
   const { dispatches, total, overrides, agreementRate, loading, error } =
     useDispatches();
   const { hospitals } = useHospitals();
@@ -125,33 +136,33 @@ export function HistoryPanel() {
     <div className="flex flex-col gap-6">
       <StatGrid>
         <Stat
-          label="Incidents"
+          label={t("history.incidentsLabel")}
           value={total}
           icon={<ClipboardList className="size-3.5" />}
         />
         <Stat
-          label="Followed the recommendation"
+          label={t("history.followedRecommendation")}
           value={total ? total - overrides : 0}
           sub={
             agreementRate != null
-              ? `${Math.round(agreementRate * 100)}% agreement`
-              : "No incidents yet"
+              ? t("history.agreementPercent", { percent: Math.round(agreementRate * 100) })
+              : t("history.noIncidentsYet")
           }
           tone="success"
           icon={<ThumbsUp className="size-3.5" />}
         />
         <Stat
-          label="Dispatcher overrides"
+          label={t("history.dispatcherOverrides")}
           value={overrides}
-          sub="Human chose a different hospital"
+          sub={t("history.humanChoseDifferent")}
           tone={overrides > 0 ? "warning" : "neutral"}
         />
         <Stat
-          label="In progress"
+          label={t("history.inProgress")}
           value={
-            [...statuses.values()].filter((s) => s.label !== "Completed").length
+            [...statuses.values()].filter((s) => s.labelKey !== "completed").length
           }
-          sub="Crews still on a run"
+          sub={t("history.crewsStillOnRun")}
           tone="accent"
         />
       </StatGrid>
@@ -163,8 +174,8 @@ export function HistoryPanel() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search patient, condition, hospital or callsign"
-            aria-label="Search incidents"
+            placeholder={t("history.searchPlaceholder")}
+            aria-label={t("history.searchAriaLabel")}
             className="pl-9"
           />
         </div>
@@ -172,24 +183,26 @@ export function HistoryPanel() {
         <Select
           value={severity}
           onChange={(event) => setSeverity(event.target.value)}
-          aria-label="Filter by severity"
+          aria-label={t("history.filterSeverityAria")}
           className="sm:w-44"
         >
-          <option value="all">All severities</option>
+          <option value="all">{t("history.allSeverities")}</option>
           {severities.map((value) => (
-            <option key={value} value={value}>{value}</option>
+            <option key={value} value={value}>
+              {t(`status.severity.${value}`)}
+            </option>
           ))}
         </Select>
 
         <Select
           value={outcome}
           onChange={(event) => setOutcome(event.target.value)}
-          aria-label="Filter by outcome"
+          aria-label={t("history.filterOutcomeAria")}
           className="sm:w-52"
         >
-          <option value="all">All decisions</option>
-          <option value="agreed">Followed recommendation</option>
-          <option value="override">Dispatcher override</option>
+          <option value="all">{t("history.allDecisions")}</option>
+          <option value="agreed">{t("history.followedRecommendationOption")}</option>
+          <option value="override">{t("history.dispatcherOverrideOption")}</option>
         </Select>
       </div>
 
@@ -197,20 +210,20 @@ export function HistoryPanel() {
       {dispatches.length === 0 ? (
         <EmptyState
           icon={<ClipboardList className="size-6" />}
-          title="No incidents yet"
-          body="Confirm a dispatch on the console and it will appear here."
+          title={t("history.noIncidentsYet")}
+          body={t("history.noIncidentsBody")}
         />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Search className="size-6" />}
-          title="No matching incidents"
-          body="Try a different search or clear the filters."
+          title={t("history.noMatching")}
+          body={t("history.noMatchingBody")}
         />
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((row) => {
             const status = statuses.get(row.id) ?? {
-              label: "Completed",
+              labelKey: "completed" as const,
               tone: "neutral" as const,
             };
 
@@ -219,12 +232,12 @@ export function HistoryPanel() {
                 <CardBody className="flex flex-col gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <SeverityBadge severity={row.severity} />
-                    <Badge tone="neutral">{row.condition}</Badge>
-                    {row.needs_icu ? <Badge tone="danger">ICU</Badge> : null}
+                    <Badge tone="neutral">{t(`status.condition.${row.condition}`)}</Badge>
+                    {row.needs_icu ? <Badge tone="danger">{t("history.icuBadge")}</Badge> : null}
                     {row.was_override ? (
-                      <Badge tone="warning">Dispatcher override</Badge>
+                      <Badge tone="warning">{t("history.dispatcherOverrideOption")}</Badge>
                     ) : null}
-                    <Badge tone={status.tone}>{status.label}</Badge>
+                    <Badge tone={status.tone}>{t(STATUS_LABEL_KEYS[status.labelKey])}</Badge>
                     <time
                       className="ml-auto text-xs text-muted"
                       dateTime={row.created_at}
@@ -234,25 +247,29 @@ export function HistoryPanel() {
                     </time>
                   </div>
 
-                  <p className="text-sm">{row.patient_note || "No description recorded"}</p>
+                  <p className="text-sm">
+                    {row.patient_note || t("ambulancePage.noDescriptionRecorded")}
+                  </p>
 
                   <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-muted">
                     <span className="flex items-center gap-1.5">
                       <AmbulanceIcon className="size-3.5" />
                       {row.ambulance_id
-                        ? (callsign.get(row.ambulance_id) ?? "Unknown vehicle")
-                        : "No vehicle assigned"}
+                        ? (callsign.get(row.ambulance_id) ?? t("history.unknownVehicle"))
+                        : t("history.noVehicleAssigned")}
                       {row.response_eta_minutes
-                        ? ` · ${Math.round(row.response_eta_minutes)} min to scene`
+                        ? t("history.minToSceneShort", {
+                            count: Math.round(row.response_eta_minutes),
+                          })
                         : null}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <HospitalIcon className="size-3.5" />
                       {row.hospital_id
-                        ? (hospitalName.get(row.hospital_id) ?? "Unknown hospital")
-                        : "Hospital not yet chosen"}
+                        ? (hospitalName.get(row.hospital_id) ?? t("history.unknownHospital"))
+                        : t("history.hospitalNotChosen")}
                       {row.eta_minutes
-                        ? ` · ${Math.round(row.eta_minutes)} min transport`
+                        ? t("history.minTransportShort", { count: Math.round(row.eta_minutes) })
                         : null}
                     </span>
                   </div>
