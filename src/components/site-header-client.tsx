@@ -2,28 +2,25 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Database, HardDrive, User } from "lucide-react";
+import { User } from "lucide-react";
 import { project } from "@/config/project";
 import type { Role } from "@/lib/auth/roles";
 import { useT } from "@/lib/i18n/context";
 import { mediaUrl } from "@/lib/media";
-import { Badge } from "@/components/ui/badge";
 import { SiteNav } from "@/components/site-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
 
 /**
- * `mode` and `signedIn` are computed server-side in `site-header.tsx`
- * (storeMode() and the Supabase session read both need server-only modules)
- * and passed in as props, so this component can stay client-rendered for
- * the language/theme toggles without shipping those modules to the browser.
+ * `signedIn` and `role` are computed server-side in `site-header.tsx` (the
+ * Supabase session read needs server-only modules) and passed in as props, so
+ * this component can stay client-rendered for the language/theme toggles
+ * without shipping those modules to the browser.
  */
 export function SiteHeaderClient({
-  mode,
   signedIn,
   role,
 }: {
-  mode: "supabase" | "memory";
   signedIn: boolean;
   role: Role | null;
 }) {
@@ -42,19 +39,6 @@ export function SiteHeaderClient({
         <SiteNav role={role} className="hidden md:flex" />
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {/* Tells you at a glance whether you're on real data. */}
-          <Badge
-            tone={mode === "supabase" ? "success" : "warning"}
-            className="hidden sm:inline-flex"
-            title={mode === "supabase" ? t("chrome.supabaseTooltip") : t("chrome.demoDataTooltip")}
-          >
-            {mode === "supabase" ? (
-              <Database className="size-3" />
-            ) : (
-              <HardDrive className="size-3" />
-            )}
-            {mode === "supabase" ? t("chrome.supabaseBadge") : t("chrome.demoDataBadge")}
-          </Badge>
           <LanguageToggle />
           <ThemeToggle />
 

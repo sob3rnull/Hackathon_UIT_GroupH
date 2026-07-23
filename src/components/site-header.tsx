@@ -1,12 +1,9 @@
-import { storeMode } from "@/lib/mediroute/store";
 import { isRole, type Role } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { SiteHeaderClient } from "@/components/site-header-client";
 
-/** Server wrapper: reads storeMode() and the session, both server-only, then hands off to the client chrome. */
+/** Server wrapper: reads the session (server-only), then hands off to the client chrome. */
 export async function SiteHeader() {
-  const mode = storeMode();
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,5 +14,5 @@ export async function SiteHeader() {
   const rawRole = user?.app_metadata?.role;
   const role: Role | null = isRole(rawRole) ? rawRole : null;
 
-  return <SiteHeaderClient mode={mode} signedIn={Boolean(user)} role={role} />;
+  return <SiteHeaderClient signedIn={Boolean(user)} role={role} />;
 }
