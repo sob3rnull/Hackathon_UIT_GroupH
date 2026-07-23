@@ -271,6 +271,10 @@ export interface DispatchInput {
 export interface DispatchRow extends DispatchInput {
   id: string;
   created_at: string;
+  /** pending | accepted | en_route | on_scene | transporting | arrived | cancelled */
+  status: string;
+  accepted_at: string | null;
+  arrived_at: string | null;
 }
 
 const gd = globalThis as unknown as { __dispatches?: DispatchRow[] };

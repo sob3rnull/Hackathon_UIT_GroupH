@@ -108,10 +108,21 @@ export function AmbulanceDashboard() {
     [ambulances, vehicleId],
   );
 
-  /** The newest run assigned to this vehicle. Older ones are history. */
+  /**
+   * The newest ACTIVE run assigned to this vehicle. Completed or cancelled runs
+   * are history, not the current mission, so they're filtered out — the crew
+   * sees "Standing by" once a run is done, not a finished mission lingering.
+   */
   const mission = useMemo(
     () =>
-      vehicle ? (dispatches.find((d) => d.ambulance_id === vehicle.id) ?? null) : null,
+      vehicle
+        ? (dispatches.find(
+            (d) =>
+              d.ambulance_id === vehicle.id &&
+              d.status !== "arrived" &&
+              d.status !== "cancelled",
+          ) ?? null)
+        : null,
     [dispatches, vehicle],
   );
 
