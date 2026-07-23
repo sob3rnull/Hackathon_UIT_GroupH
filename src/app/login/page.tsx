@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { HOME, isRole, safeNext } from "@/lib/auth/roles";
+import { project } from "@/config/project";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
@@ -56,7 +57,7 @@ export default function LoginPage() {
       <div className="mx-auto w-full max-w-sm py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Sign in to MediRoute</CardTitle>
+            <CardTitle>Sign in to {project.name}</CardTitle>
             <CardDescription>
               Your account decides which dashboard you land on.
             </CardDescription>
@@ -95,12 +96,14 @@ export default function LoginPage() {
                 {busy ? "Signing in…" : "Sign in"}
               </Button>
 
-              <Link
-                href="/reset-password"
-                className="text-center text-xs text-muted hover:text-foreground"
-              >
-                Forgot your password?
-              </Link>
+              <div className="flex flex-col gap-1 text-center text-xs text-muted">
+                <Link href="/reset-password" className="hover:text-foreground">
+                  Forgot your password?
+                </Link>
+                <Link href="/register" className="hover:text-foreground">
+                  Create an account
+                </Link>
+              </div>
             </form>
           </CardBody>
         </Card>

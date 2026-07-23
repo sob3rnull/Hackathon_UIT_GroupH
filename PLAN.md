@@ -1,4 +1,4 @@
-# MediRoute — AI-Assisted Emergency Hospital Routing
+# WheeYaw — AI-Assisted Emergency Hospital Routing
 
 Recommends the best hospital for an incoming ambulance — not the *nearest*, but the
 nearest one that is actually *available and equipped* to treat this patient, based on
@@ -26,7 +26,7 @@ live bed occupancy, specialist availability, and ER load.
 
 Emergency routing today optimizes for distance and traffic alone. Ambulances arrive at
 the "nearest" hospital to find no available beds, no specialist on duty, or an
-overloaded ER — burning minutes inside a resuscitation window. MediRoute matches
+overloaded ER — burning minutes inside a resuscitation window. WheeYaw matches
 patient condition against live hospital capacity and travel time in one ranked
 recommendation, with a human dispatcher always able to override.
 

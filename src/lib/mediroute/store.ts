@@ -16,7 +16,7 @@ export function storeMode(): "supabase" | "memory" {
 }
 
 /**
- * The only module that touches storage for MediRoute.
+ * The only module that touches storage for WheeYaw.
  *
  * With Supabase env vars set it reads and writes Postgres; with them blank it
  * runs the same data in memory. The demo therefore survives a dead database,
@@ -355,7 +355,15 @@ export async function updateDispatch(
 const DONATION_PUBLIC_COLUMNS =
   "id, hospital_id, donor_name, amount, message, payment_method, created_at";
 
-const stripPayerPhone = ({ payer_phone: _ignored, ...rest }: Donation): PublicDonation => rest;
+const stripPayerPhone = (d: Donation): PublicDonation => ({
+  id: d.id,
+  hospital_id: d.hospital_id,
+  donor_name: d.donor_name,
+  amount: d.amount,
+  message: d.message,
+  payment_method: d.payment_method,
+  created_at: d.created_at,
+});
 
 const gdn = globalThis as unknown as { __donations?: Donation[] };
 

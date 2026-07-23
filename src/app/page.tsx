@@ -14,7 +14,7 @@ import { Card, CardBody, CardDescription, CardTitle } from "@/components/ui/card
 import { HospitalDirectory } from "@/components/mediroute/hospital-directory";
 
 /**
- * The public face of MediRoute: a directory of the hospitals in the network
+ * The public face of WheeYaw: a directory of the hospitals in the network
  * with live status and a (demo) donation flow. The operational screens are
  * linked from the header and the "For responders" row below.
  */

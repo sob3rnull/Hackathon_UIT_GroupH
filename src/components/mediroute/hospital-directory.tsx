@@ -9,6 +9,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { HospitalStatusBadge } from "@/components/mediroute/status";
+import { project } from "@/config/project";
 import { cn } from "@/lib/utils";
 import { describeHospital } from "@/lib/mediroute/describe";
 import { useDonations } from "@/lib/mediroute/use-donations";
@@ -409,7 +410,7 @@ export function HospitalDirectory() {
                     {otpSent ? (
                       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-muted/50 p-3">
                         <p className="rounded-md border border-dashed border-accent/40 bg-accent-soft/60 px-3 py-2 font-mono text-xs text-accent-hover dark:text-accent">
-                          Demo SMS to {cleanPhone}: your MediRoute code is{" "}
+                          Demo SMS to {cleanPhone}: your {project.name} code is{" "}
                           <span className="font-semibold">{otpDemoCode}</span>
                         </p>
                         <Field

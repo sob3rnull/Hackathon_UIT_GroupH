@@ -1,4 +1,4 @@
-# MediRoute — AI-Assisted Emergency Hospital Routing
+# WheeYaw — AI-Assisted Emergency Hospital Routing
 
 Recommends the best hospital for an incoming ambulance — not the *nearest*, but the
 nearest one that is actually **available and equipped** to treat this patient.
@@ -73,7 +73,7 @@ hospital 15 minutes out is a different clinical picture from the reverse.
 
 ## The backend is an n8n workflow
 
-**Workflow:** [MediRoute API](https://dontwannacode.app.n8n.cloud/workflow/poWIRrVi6X58C8jH)
+**Workflow:** [WheeYaw API](https://dontwannacode.app.n8n.cloud/workflow/poWIRrVi6X58C8jH)
 · ~25 nodes · published
 
 | Route | Does |

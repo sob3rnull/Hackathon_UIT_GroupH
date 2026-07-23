@@ -216,7 +216,7 @@ grant select (id, hospital_id, donor_name, amount, message, payment_method, crea
 alter publication supabase_realtime drop table public.donations;
 
 -- ─── items ──────────────────────────────────────────────────────────────
--- Left over from the project template and unused by MediRoute. Drop the open
+-- Left over from the project template and unused by WheeYaw. Drop the open
 -- policy so it isn't the one anon-writable table left standing; drop the table
 -- entirely once you've confirmed nothing reads it.
 drop policy if exists "anon full access" on public.items;

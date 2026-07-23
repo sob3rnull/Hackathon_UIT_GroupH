@@ -3,7 +3,7 @@
  * hero and landing cards all follow.
  */
 export const project = {
-  name: "MediRoute",
+  name: "WheeYaw",
 
   category: "Health Emergency",
 
@@ -16,7 +16,7 @@ export const project = {
     "Routes ambulances to the hospital that can actually treat the patient — not just the closest one.",
 
   pitch:
-    "Emergency routing today optimizes for distance alone, so ambulances arrive to find no beds, no specialist on duty, or an overloaded ER. MediRoute sends the nearest ambulance the moment a call comes in, then turns the crew's own words — spoken or typed — into structured triage and ranks hospitals on live capacity plus travel time, showing its reasoning every step, with a human override always one click away.",
+    "Emergency routing today optimizes for distance alone, so ambulances arrive to find no beds, no specialist on duty, or an overloaded ER. WheeYaw sends the nearest ambulance the moment a call comes in, then turns the crew's own words — spoken or typed — into structured triage and ranks hospitals on live capacity plus travel time, showing its reasoning every step, with a human override always one click away.",
 
   team: "Group H · UIT",
 

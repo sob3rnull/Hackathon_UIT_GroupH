@@ -1,4 +1,4 @@
--- MediRoute schema. APPLIED to the team's Supabase project on 2026-07-22.
+-- WheeYaw schema. APPLIED to the team's Supabase project on 2026-07-22.
 -- Run this in the SQL editor to rebuild from scratch, then run the seed below.
 
 create table if not exists public.hospitals (

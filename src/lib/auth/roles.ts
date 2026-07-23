@@ -1,4 +1,4 @@
-/** The three MediRoute roles. Mirrors profiles.role in migration 0007. */
+/** The three WheeYaw roles. Mirrors profiles.role in migration 0007. */
 export type Role = "dispatcher" | "ambulance" | "hospital";
 
 export const ROLES: Role[] = ["dispatcher", "ambulance", "hospital"];
@@ -34,7 +34,7 @@ export const GUARD: ReadonlyArray<readonly [string, readonly Role[]]> = [
 /**
  * Reachable without a session, and never redirected away from.
  *
- * "/" is MediRoute's public face — the hospital directory and the donation
+ * "/" is WheeYaw's public face — the hospital directory and the donation
  * form. Treating it as an app route would put the donation flow behind a login
  * wall, which defeats its whole purpose.
  */
@@ -47,6 +47,7 @@ export function isPublicPath(path: string): boolean {
   return (
     isOpenPath(path) ||
     path === "/login" ||
+    path === "/register" ||
     path === "/reset-password" ||
     path === "/update-password" ||
     path.startsWith("/auth/")
@@ -62,7 +63,9 @@ export function isPublicPath(path: string): boolean {
  * callback route needs to run while a session exists.
  */
 export function isSignedOutOnlyPath(path: string): boolean {
-  return path === "/login" || path === "/reset-password";
+  return (
+    path === "/login" || path === "/register" || path === "/reset-password"
+  );
 }
 
 /**
