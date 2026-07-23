@@ -92,6 +92,15 @@ const en = {
     donate: "Donate",
   },
 
+  gallery: {
+    title: "Hospitals and ambulances in the field",
+    subtitle:
+      "A look at the hospital wards and ambulance operations across Myanmar that your donation supports.",
+    photoAlt: "Photo {{count}} of hospital and ambulance operations in Myanmar",
+    disclaimer:
+      "Illustrative photos of Myanmar hospital and ambulance operations, not all taken by the WheeYaw team — shown to give a sense of what your donation supports, not as records of specific WheeYaw-routed cases.",
+  },
+
   donate: {
     title: "Your support keeps ambulances moving",
     body: "Every donation helps a hospital keep beds open, restock emergency supplies and stay ready for the next call. Pick a hospital — or give to the general fund and we'll route it where the need is greatest.",

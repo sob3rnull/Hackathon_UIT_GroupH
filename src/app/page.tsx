@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Ambulance,
@@ -15,6 +16,8 @@ import { useT } from "@/lib/i18n/context";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardDescription, CardTitle } from "@/components/ui/card";
 import { HospitalDirectory } from "@/components/mediroute/hospital-directory";
+import { ImpactGallery } from "@/components/mediroute/impact-gallery";
+import { mediaUrl } from "@/lib/media";
 
 /**
  * The public face of WheeYaw: a directory of the hospitals in the network
@@ -37,14 +40,31 @@ export default function HomePage() {
 
   return (
     <>
-      <section className="hero-glow border-b border-border">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-5 py-14 text-center sm:py-18">
+      <section className="relative overflow-hidden border-b border-border">
+        {/* Yangon General Hospital, clearly visible behind the text. The
+            scrim is a flat tint rather than a heavy gradient so the photo
+            reads at full strength while the badge/heading/CTAs — most of
+            which sit on their own solid backgrounds anyway — stay legible
+            in both themes. */}
+        <Image
+          src={mediaUrl("hero-hospital.jpg")}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-background/55 dark:bg-background/70" />
+
+        <div className="hero-glow relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-5 px-5 py-14 text-center sm:py-18">
           <Badge tone="accent">{t("home.heroBadge")}</Badge>
 
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight drop-shadow-sm sm:text-5xl">
             {t("home.heroTitle")}
           </h1>
-          <p className="max-w-2xl text-lg text-muted">{t("project.tagline")}</p>
+          <p className="max-w-2xl text-lg text-foreground/80 drop-shadow-sm">
+            {t("project.tagline")}
+          </p>
 
           <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
             <a
@@ -64,6 +84,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <ImpactGallery />
 
       <HospitalDirectory />
 
