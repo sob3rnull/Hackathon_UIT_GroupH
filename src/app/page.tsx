@@ -53,6 +53,10 @@ export default function HomePage() {
           priority
           sizes="100vw"
           className="object-cover"
+          // Served straight from Supabase Storage, not Next's optimizer, so a
+          // photo swapped in the dashboard shows up without a redeploy — which
+          // is the whole reason these live in a bucket (see lib/media.ts).
+          unoptimized
         />
         <div className="absolute inset-0 bg-background/55 dark:bg-background/70" />
 

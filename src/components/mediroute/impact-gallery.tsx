@@ -44,6 +44,9 @@ export function ImpactGallery() {
               fill
               sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
               className="object-cover"
+              // Straight from Supabase Storage (see the hero note in page.tsx) —
+              // dashboard swaps show without a redeploy or a stale optimizer cache.
+              unoptimized
             />
           </div>
         ))}

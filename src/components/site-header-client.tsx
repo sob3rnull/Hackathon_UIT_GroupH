@@ -34,7 +34,7 @@ export function SiteHeaderClient({
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold">
           <span className="relative size-7 shrink-0 overflow-hidden rounded-md bg-white">
-            <Image src={mediaUrl("logo.jpg")} alt="" fill className="object-contain" />
+            <Image src={mediaUrl("logo.jpg")} alt="" fill className="object-contain" unoptimized />
           </span>
           <span className="tracking-tight">{project.name}</span>
         </Link>
