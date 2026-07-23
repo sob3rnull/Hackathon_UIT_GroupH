@@ -56,14 +56,21 @@ Sign-in is **email/password via Supabase Auth**, with three roles — `dispatche
 Roles are **admin-provisioned**: `/register` creates an account with no role, which
 waits on `/pending`. An administrator assigns the role by inserting a `profiles` row.
 
-**Current state:** implemented in code, **not yet applied to the live database.** The
-live DB still runs the open hackathon policies (migrations `0001`–`0006`). To switch a
-project over: create the demo users in the Supabase dashboard, then run
-[`supabase/apply_auth_demo.sql`](supabase/apply_auth_demo.sql) — it applies the auth
-schema + RLS (`0007`), seeds demo data (`0008`), and links the three profiles by email
-in one transaction that rolls back if the users don't exist yet. With Supabase env
-vars **blank**, the app stays in memory mode and skips auth entirely, so the offline
-demo is unaffected.
+**Users self-register** at `/register` (role + phone + organization; hospital staff
+pick their hospital). The row is written **unverified** — no JWT role claim — so they
+sit on `/pending` until an admin sets `is_verified = true` in the Supabase table
+editor. Roles ride in the token, so a freshly-verified user must **sign out and back
+in** for it to take effect.
+
+**Current state:** `0007` (auth + RLS) and `0008` (demo dispatches) are **applied to
+the live database.** No admin account exists — verification is done directly in
+Supabase. `apply_auth_demo.sql` remains the one-shot for standing a fresh project up
+(it also seeds three pre-verified demo logins). With Supabase env vars **blank**, the
+app stays in memory mode and skips auth entirely, so the offline demo is unaffected.
+
+> **Dummy emails:** turn **off** "Confirm email" in Authentication → Providers →
+> Email. Then `foo@bar.demo` and the like work immediately — signup returns a live
+> session with no confirmation link to click.
 
 ---
 
@@ -461,12 +468,11 @@ editable by the crew before they confirm, and the final routing — both which v
 and which hospital — is always a human decision, made by two different people at two
 different moments so neither call happens under time pressure alone.
 
-> ⚠️ **Auth + RBAC exist in code but aren't applied to the live database yet.** Until
-> [`supabase/apply_auth_demo.sql`](supabase/apply_auth_demo.sql) is run, the live DB
-> still grants the anon role unconditional read/write (migrations `0001`–`0006`), and
-> the anon key ships in the browser bundle. Fine for fictional demo data. Once `0007`
-> is applied, `dispatches`, `ambulances` and hospital *writes* are role-scoped, and
-> `donations.payer_phone` is stripped at the grant — but **never put real patient
-> information in this database** regardless. See **Authentication & roles** above.
+> ⚠️ **Auth + RBAC are applied.** `dispatches`, `ambulances` and hospital *writes* are
+> role-scoped, and `donations.payer_phone` is stripped at the column grant. Hospital
+> capacity stays publicly readable for the `/` directory. Email confirmation is turned
+> off so dummy addresses work — that's a deliberate demo choice, not a security stance.
+> **Never put real patient information in this database.** See **Authentication &
+> roles** above.
 
 See [PLAN.md](PLAN.md) for the original build plan, cut list, and judging Q&A prep.
