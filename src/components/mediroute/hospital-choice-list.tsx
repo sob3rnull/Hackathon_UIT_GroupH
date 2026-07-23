@@ -32,6 +32,24 @@ export function HospitalChoiceList({
   const t = useT();
   const { locale } = useLocale();
 
+  // Counterfactual: what plain distance-only routing would do. If the hospital
+  // closest by ETA is one the engine hard-filtered out (can't treat this
+  // patient), it is by definition not our recommendation — so name it and say
+  // why it was excluded. Derived entirely from what recommend() already returns.
+  const recommended = rec?.ranked[0] ?? null;
+  const nearestByEta = rec
+    ? [...rec.ranked, ...rec.excluded].reduce<
+        (typeof rec.excluded)[number] | (typeof rec.ranked)[number] | null
+      >((best, entry) => (!best || entry.etaMinutes < best.etaMinutes ? entry : best), null)
+    : null;
+  const counterfactual =
+    recommended &&
+    nearestByEta &&
+    nearestByEta.hospital.id !== recommended.hospital.id &&
+    "reason" in nearestByEta
+      ? nearestByEta
+      : null;
+
   return (
     <Card>
       <CardHeader>
@@ -59,7 +77,16 @@ export function HospitalChoiceList({
         ) : rec.ranked.length === 0 ? (
           <p className="text-sm text-danger">{t("hospitalChoice.noneCanTake")}</p>
         ) : (
-          rec.ranked.map((entry, index) => {
+          <>
+          {counterfactual ? (
+            <p className="rounded-lg border border-dashed border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+              {t("hospitalChoice.counterfactual", {
+                name: counterfactual.hospital.short_name,
+                reason: translateReason(counterfactual.reason, t, locale),
+              })}
+            </p>
+          ) : null}
+          {rec.ranked.map((entry, index) => {
             const isSelected = entry.hospital.id === selectedId;
             const specialists =
               entry.hospital.doctors_on_duty[rec.triage.requiredSpecialty] ?? 0;
@@ -103,7 +130,8 @@ export function HospitalChoiceList({
                 </p>
               </button>
             );
-          })
+          })}
+          </>
         )}
 
         {rec?.excluded.length ? (

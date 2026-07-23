@@ -61,6 +61,10 @@ export function Dispatcher() {
   const [fleetPick, setFleetPick] = useState<AmbulanceSelection | null>(null);
   const [assignedId, setAssignedId] = useState<string | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locateNotice, setLocateNotice] = useState<
+    { kind: "resolved"; landmark: string } | { kind: "failed" } | null
+  >(null);
   const [staleNotice, setStaleNotice] = useState(false);
 
   const [assigning, setAssigning] = useState(false);
@@ -140,12 +144,46 @@ export function Dispatcher() {
     setActionError(null);
     setAssignedDispatchId(null);
     setMarks({ ...NO_MARKS, call: Date.now() });
-    await planFleet(incident);
+
+    // Ask Claude to read the note for a location before ranking the fleet. On
+    // success the incident pin jumps to the resolved landmark (still draggable);
+    // on any failure we leave the incident where it is and quietly ask the
+    // dispatcher to click the map.
+    let at = incident;
+    if (note.trim().length >= 3) {
+      setLocating(true);
+      try {
+        const response = await fetch("/api/locate", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ text: note }),
+        });
+        const result = await response.json();
+        if (result?.ok && result.data?.resolved) {
+          at = { lat: result.data.lat, lng: result.data.lng };
+          setIncident(at);
+          setLocateNotice({ kind: "resolved", landmark: result.data.landmark });
+        } else {
+          setLocateNotice({ kind: "failed" });
+        }
+      } catch {
+        setLocateNotice({ kind: "failed" });
+      } finally {
+        setLocating(false);
+      }
+    } else {
+      setLocateNotice(null);
+    }
+
+    await planFleet(at);
   }
 
   function moveIncident(point: LatLng) {
     setIncident(point);
     setAssignedDispatchId(null);
+    // The dispatcher is correcting the location by hand, so the "from note"
+    // hint no longer describes the pin.
+    setLocateNotice(null);
     if (fleetPick) void planFleet(point);
   }
 
@@ -239,8 +277,15 @@ export function Dispatcher() {
           note={note}
           onNoteChange={setNote}
           onFindAmbulances={handleFindAmbulances}
-          finding={planning}
+          finding={planning || locating}
         />
+        {locateNotice?.kind === "resolved" ? (
+          <p className="text-xs text-accent">
+            {t("dispatcher.locateResolved", { landmark: locateNotice.landmark })}
+          </p>
+        ) : locateNotice?.kind === "failed" ? (
+          <p className="text-xs text-muted">{t("dispatcher.locateFailed")}</p>
+        ) : null}
       </Section>
 
       {/* ── Middle: the one decision — which ambulance ───────────────────── */}

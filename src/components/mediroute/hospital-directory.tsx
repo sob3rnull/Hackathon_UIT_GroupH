@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardTitle } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { ErrorState, Skeleton, Spinner } from "@/components/ui/states";
+import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { HospitalStatusBadge } from "@/components/mediroute/status";
 import { project } from "@/config/project";
@@ -282,6 +282,12 @@ export function HospitalDirectory() {
             <ErrorState message={error} onRetry={() => void reload()} />
           ) : loading ? (
             <Skeleton rows={3} />
+          ) : hospitals.length === 0 ? (
+            <EmptyState
+              icon={<HeartPulse className="size-6" />}
+              title={t("home.hospitalsEmptyTitle")}
+              body={t("home.hospitalsEmptyBody")}
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {hospitals.map((hospital) => (

@@ -12,6 +12,21 @@ import { Card, CardBody, CardHeader, CardTitle, CardDescription } from "@/compon
 import { Field, Input } from "@/components/ui/field";
 import { PageShell } from "@/components/ui/page";
 
+/**
+ * Pre-verified demo accounts from supabase/apply_auth_demo.sql — one per role.
+ * They all share a single password: set NEXT_PUBLIC_DEMO_PASSWORD in
+ * .env.local, or edit DEMO_PASSWORD below to whatever you gave the three users
+ * in Supabase (Authentication → Users). This is the one value that must match
+ * for the buttons to sign in.
+ */
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD ?? "password";
+
+const DEMO_ACCOUNTS = [
+  { email: "dispatcher@wheeyaw.demo", labelKey: "auth.demoDispatcher" },
+  { email: "crew@wheeyaw.demo", labelKey: "auth.demoCrew" },
+  { email: "hospital@wheeyaw.demo", labelKey: "auth.demoHospital" },
+] as const;
+
 export default function LoginPage() {
   const t = useT();
   const { locale } = useLocale();
@@ -20,8 +35,7 @@ export default function LoginPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function signIn(emailValue: string, passwordValue: string) {
     setError(null);
 
     const supabase = createClient();
@@ -32,8 +46,8 @@ export default function LoginPage() {
 
     setBusy(true);
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: emailValue,
+      password: passwordValue,
     });
     setBusy(false);
 
@@ -54,6 +68,11 @@ export default function LoginPage() {
     // freshly-written session cookie on the very next request.
     const next = safeNext(new URLSearchParams(window.location.search).get("next"));
     window.location.assign(next ?? home);
+  }
+
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    await signIn(email, password);
   }
 
   return (
@@ -107,6 +126,26 @@ export default function LoginPage() {
                 </Link>
               </div>
             </form>
+
+            {/* One-click demo logins — pre-verified accounts, one per role. */}
+            <div className="mt-6 border-t border-border pt-4">
+              <p className="text-center text-xs font-medium text-muted">
+                {t("auth.demoAccounts")}
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                {DEMO_ACCOUNTS.map((account) => (
+                  <Button
+                    key={account.email}
+                    type="button"
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => void signIn(account.email, DEMO_PASSWORD)}
+                  >
+                    {t(account.labelKey)}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </CardBody>
         </Card>
       </div>

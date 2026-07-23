@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Database, HardDrive, User } from "lucide-react";
 import { project } from "@/config/project";
+import type { Role } from "@/lib/auth/roles";
 import { useT } from "@/lib/i18n/context";
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo } from "@/components/brand-logo";
@@ -19,9 +20,11 @@ import { LanguageToggle } from "@/components/language-toggle";
 export function SiteHeaderClient({
   mode,
   signedIn,
+  role,
 }: {
   mode: "supabase" | "memory";
   signedIn: boolean;
+  role: Role | null;
 }) {
   const t = useT();
 
@@ -33,7 +36,7 @@ export function SiteHeaderClient({
           <span className="tracking-tight">{project.name}</span>
         </Link>
 
-        <SiteNav className="hidden md:flex" />
+        <SiteNav role={role} className="hidden md:flex" />
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           {/* Tells you at a glance whether you're on real data. */}
@@ -82,9 +85,11 @@ export function SiteHeaderClient({
       </div>
 
       {/* Mobile / tablet: the same roles, scrollable. */}
-      <div className="border-t border-border px-3 py-1.5 md:hidden">
-        <SiteNav className="overflow-x-auto" />
-      </div>
+      {role ? (
+        <div className="border-t border-border px-3 py-1.5 md:hidden">
+          <SiteNav role={role} className="overflow-x-auto" />
+        </div>
+      ) : null}
     </header>
   );
 }

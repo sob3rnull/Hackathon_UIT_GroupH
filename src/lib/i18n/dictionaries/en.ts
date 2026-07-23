@@ -80,6 +80,9 @@ const en = {
     hospitalsTitle: "Hospitals in the network",
     hospitalsSub:
       "Live capacity from {{count}} Yangon hospitals. Donations go toward beds, supplies and ambulance readiness.",
+    hospitalsEmptyTitle: "No hospitals to show",
+    hospitalsEmptyBody:
+      "No hospitals are listed yet. Check back once the network is loaded.",
     bedsFree: "{{count}} beds free",
     icuFree: "{{count}} ICU free",
     fallbackDescription: "{{beds}}-bed hospital in Yangon offering {{specialties}}.",
@@ -235,6 +238,8 @@ const en = {
     sectionAssignDesc: "Your only decision here. Triage and the hospital pick happen on the crew's tablet.",
     staleNoticeText: "Fleet status changed elsewhere — list updated.",
     planningFailed: "Planning failed",
+    locateResolved: "Location: {{landmark}} (from note) — drag to correct",
+    locateFailed: "Couldn't infer location, click the map",
     assignmentFailed: "Assignment failed",
     assignedToastTitle: "{{callsign}} assigned",
     assignedToastDesc: "Triage and hospital choice are now on their tablet.",
@@ -387,6 +392,7 @@ const en = {
     noneCanTake: "No hospital can take this patient. Escalate to dispatch.",
     minShort: "{{count}} min",
     bedsIcuLine: "{{beds}} beds · {{icu}} ICU · {{specialists}} {{specialty}} · ER {{er}}%",
+    counterfactual: "Distance-only routing would send: {{name}} — {{reason}}",
   },
 
   triageSummary: {
@@ -471,6 +477,10 @@ const en = {
     signInSubtitle: "Your account decides which dashboard you land on.",
     signIn: "Sign in",
     signingIn: "Signing in…",
+    demoAccounts: "Demo accounts",
+    demoDispatcher: "Dispatcher",
+    demoCrew: "Ambulance crew",
+    demoHospital: "Hospital staff",
     forgotPassword: "Forgot your password?",
     notConfigured: "Supabase isn't configured, so there's nothing to sign in to.",
     notConfiguredReset: "Supabase isn't configured, so no email can be sent.",
