@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { Database, HardDrive } from "lucide-react";
+import { Database, HardDrive, User } from "lucide-react";
 import { project } from "@/config/project";
 import { storeMode } from "@/lib/mediroute/store";
+import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { SiteNav } from "@/components/site-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-export function SiteHeader() {
+export async function SiteHeader() {
   const mode = storeMode();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = (await supabase?.auth.getUser()) ?? { data: { user: null } };
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
@@ -40,6 +46,33 @@ export function SiteHeader() {
             {mode === "supabase" ? "Supabase" : "Demo data"}
           </Badge>
           <ThemeToggle />
+
+          {user ? (
+            <>
+              <Link
+                href="/profile"
+                title="Your profile"
+                className="grid size-8 place-items-center rounded-md text-muted hover:bg-surface-muted hover:text-foreground"
+              >
+                <User className="size-4" />
+              </Link>
+              <form action="/auth/signout" method="post">
+                <button
+                  type="submit"
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-muted hover:text-foreground"
+                >
+                  Sign out
+                </button>
+              </form>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-muted hover:text-foreground"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </div>
 
