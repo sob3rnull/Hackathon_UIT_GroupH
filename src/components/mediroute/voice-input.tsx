@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Languages, Mic, Square } from "lucide-react";
+import { Languages, Mic, RotateCcw, Square } from "lucide-react";
 import { Spinner } from "@/components/ui/states";
 import { useLocale, useT } from "@/lib/i18n/context";
 import { translateApiError } from "@/lib/i18n/translate-error";
@@ -106,6 +106,10 @@ export function VoiceInput({
   // dictate, so the language is a deliberate up-front choice, not a silent guess.
   const [language, setLanguage] = useState<SpeechLanguage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // True once a dictation has produced a transcript, so the mic button can
+  // offer "Say it again" — a clear redo when the crew misspoke or isn't happy
+  // with what came out. Re-recording clears the note and starts fresh.
+  const [captured, setCaptured] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -214,6 +218,7 @@ export function VoiceInput({
         return;
       }
       onTranscript(result.data.text);
+      setCaptured(true);
       onTranscriptComplete?.(result.data.text);
     } catch (cause) {
       setError(
@@ -247,8 +252,10 @@ export function VoiceInput({
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const text = result[0]?.transcript ?? "";
-        if (result.isFinal) finalRef.current += text;
-        else interim += text;
+        if (result.isFinal) {
+          finalRef.current += text;
+          setCaptured(true);
+        } else interim += text;
       }
       onTranscript((finalRef.current + interim).trim());
     };
@@ -354,6 +361,11 @@ export function VoiceInput({
               <Square className="size-3.5 fill-current" />
               {t("voice.stopDictating")}
               <span className="ml-1 inline-flex size-2 animate-pulse rounded-full bg-white" />
+            </>
+          ) : captured ? (
+            <>
+              <RotateCcw className="size-4" />
+              {t("voice.sayAgain")}
             </>
           ) : (
             <>

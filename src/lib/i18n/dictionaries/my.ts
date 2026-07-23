@@ -377,6 +377,7 @@ const my = {
     languageBurmese: "မြန်မာ",
     languageEnglish: "အင်္ဂလိပ်",
     chooseLanguageFirst: "အသံဖြင့်ရိုက်ထည့်မီ မြန်မာ သို့မဟုတ် အင်္ဂလိပ် ကို ရွေးပါ။",
+    sayAgain: "ထပ်ပြောရန်",
     micDenied: "မိုက်ခရိုဖုန်း အသုံးပြုခွင့် ပယ်ချခံရသည်",
     speechUnreachable: "အသံဝန်ဆောင်မှု ချိတ်ဆက်၍မရပါ — မှတ်စုကို ရိုက်ထည့်ပါ",
     voiceError: "အသံထည့်သွင်းမှု အမှား — {{error}}",
