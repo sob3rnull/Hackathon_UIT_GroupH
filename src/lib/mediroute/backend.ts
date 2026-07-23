@@ -73,20 +73,16 @@ const NEUTRAL_TRIAGE: Triage = {
  * plus a pick — triage and hospital ranking both happen later, on the crew's
  * own screen, which is why this takes no triage argument.
  *
- * Locally this is a dedicated endpoint that never needed triage. n8n only
- * exposes the combined /mediroute/plan webhook, so there the same call that
- * would answer a full plan is made (with NEUTRAL_TRIAGE, since the webhook
- * requires something) and only its `fleet` half is kept.
+ * Both backends expose the combined plan webhook (/api/plan locally, the n8n
+ * /mediroute/plan otherwise), which requires a triage object, so the call sends
+ * NEUTRAL_TRIAGE and keeps only the `fleet` half of the response.
  */
 export async function getFleetPlan(incident: LatLng): Promise<AmbulanceSelection> {
-  if (N8N_BASE) {
-    const plan = await postJson<{ fleet: AmbulanceSelection }>(
-      `${N8N_BASE}/mediroute/plan`,
-      { triage: NEUTRAL_TRIAGE, incident },
-    );
-    return plan.fleet;
-  }
-  return postJson<AmbulanceSelection>("/api/ambulances", { incident });
+  const plan = await postJson<{ fleet: AmbulanceSelection }>(
+    N8N_BASE ? `${N8N_BASE}/mediroute/plan` : "/api/plan",
+    { triage: NEUTRAL_TRIAGE, incident },
+  );
+  return plan.fleet;
 }
 
 /**
@@ -97,14 +93,11 @@ export async function getHospitalPlan(
   triage: Triage,
   incident: LatLng,
 ): Promise<Recommendation> {
-  if (N8N_BASE) {
-    const plan = await postJson<{ hospitals: Recommendation }>(
-      `${N8N_BASE}/mediroute/plan`,
-      { triage, incident },
-    );
-    return plan.hospitals;
-  }
-  return postJson<Recommendation>("/api/recommend", { triage, origin: incident });
+  const plan = await postJson<{ hospitals: Recommendation }>(
+    N8N_BASE ? `${N8N_BASE}/mediroute/plan` : "/api/plan",
+    { triage, incident },
+  );
+  return plan.hospitals;
 }
 
 export interface AssignAmbulancePayload {
