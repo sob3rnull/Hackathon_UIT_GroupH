@@ -4,6 +4,8 @@ import { Ban, Hospital as HospitalIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateReason } from "@/lib/i18n/translate-reason";
 import type { Recommendation } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
 
@@ -27,17 +29,23 @@ export function HospitalChoiceList({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <HospitalIcon className="size-4" />
-          Choose the destination
+          {t("hospitalChoice.title")}
         </CardTitle>
         <CardDescription>
           {rec
-            ? `${rec.ranked.length} can take this patient · ${rec.excluded.length} filtered out`
-            : "Loading eligible hospitals…"}
+            ? t("hospitalChoice.summary", {
+                ranked: rec.ranked.length,
+                excluded: rec.excluded.length,
+              })
+            : t("hospitalChoice.loading")}
         </CardDescription>
       </CardHeader>
 
@@ -45,13 +53,11 @@ export function HospitalChoiceList({
         {!rec ? (
           <EmptyState
             icon={<HospitalIcon className="size-6" />}
-            title="Ranking hospitals…"
-            body="This appears as soon as the plan loads."
+            title={t("hospitalChoice.rankingTitle")}
+            body={t("hospitalChoice.rankingBody")}
           />
         ) : rec.ranked.length === 0 ? (
-          <p className="text-sm text-danger">
-            No hospital can take this patient. Escalate to dispatch.
-          </p>
+          <p className="text-sm text-danger">{t("hospitalChoice.noneCanTake")}</p>
         ) : (
           rec.ranked.map((entry, index) => {
             const isSelected = entry.hospital.id === selectedId;
@@ -77,25 +83,23 @@ export function HospitalChoiceList({
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-lg font-medium">{entry.hospital.short_name}</span>
-                  {index === 0 ? <Badge tone="accent">Recommended</Badge> : null}
+                  {index === 0 ? <Badge tone="accent">{t("hospitalChoice.recommended")}</Badge> : null}
                   {isSelected && index !== 0 ? (
-                    <Badge tone="warning">Your choice</Badge>
+                    <Badge tone="warning">{t("hospitalChoice.yourChoice")}</Badge>
                   ) : null}
                   <span className="ml-auto text-base font-medium tabular-nums">
-                    {Math.round(entry.etaMinutes)} min
+                    {t("hospitalChoice.minShort", { count: Math.round(entry.etaMinutes) })}
                   </span>
                 </div>
 
                 <p className="text-sm text-muted">
-                  {entry.hospital.available_beds} beds ·{" "}
-                  {entry.hospital.icu_beds_free} ICU ·{" "}
-                  <span className={specialists === 0 ? "text-warning" : undefined}>
-                    {specialists} {rec.triage.requiredSpecialty}
-                  </span>{" "}
-                  ·{" "}
-                  <span className={erPercent >= 75 ? "text-warning" : undefined}>
-                    ER {erPercent}%
-                  </span>
+                  {t("hospitalChoice.bedsIcuLine", {
+                    beds: entry.hospital.available_beds,
+                    icu: entry.hospital.icu_beds_free,
+                    specialists,
+                    specialty: t(`status.specialty.${rec.triage.requiredSpecialty}`),
+                    er: erPercent,
+                  })}
                 </p>
               </button>
             );
@@ -104,9 +108,7 @@ export function HospitalChoiceList({
 
         {rec?.excluded.length ? (
           <div className="mt-2 flex flex-col gap-2 border-t border-border pt-3">
-            <p className="text-xs font-medium text-muted">
-              Cannot take this patient
-            </p>
+            <p className="text-xs font-medium text-muted">{t("hospitalChoice.cannotTake")}</p>
             {rec.excluded.map((entry) => (
               <div
                 key={entry.hospital.id}
@@ -114,9 +116,11 @@ export function HospitalChoiceList({
               >
                 <Ban className="size-3.5 shrink-0" />
                 <span className="font-medium">{entry.hospital.short_name}</span>
-                <span className="text-xs">{Math.round(entry.etaMinutes)} min</span>
+                <span className="text-xs">
+                  {t("hospitalChoice.minShort", { count: Math.round(entry.etaMinutes) })}
+                </span>
                 <span className="ml-auto text-right text-xs text-danger">
-                  {entry.reason}
+                  {translateReason(entry.reason, t, locale)}
                 </span>
               </div>
             ))}

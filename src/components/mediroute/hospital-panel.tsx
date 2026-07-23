@@ -8,6 +8,8 @@ import { Stat, StatGrid } from "@/components/ui/stat";
 import { ErrorState, Skeleton } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { hospitalStatus } from "@/components/mediroute/status";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateApiError } from "@/lib/i18n/translate-error";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import type { Hospital } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,8 @@ type CapacityPatch = Partial<
  * follow-up. In memory mode (no Supabase) it stays fully open for the demo.
  */
 export function HospitalPanel() {
+  const t = useT();
+  const { locale } = useLocale();
   const { hospitals, loading, error, live, reload } = useHospitals();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -49,13 +53,16 @@ export function HospitalPanel() {
 
       await reload();
       toast({
-        title: `${hospital.short_name} updated`,
-        description: `${label}. Dispatch re-ranks immediately.`,
+        title: t("hospitalPanel.updatedToast", { name: hospital.short_name }),
+        description: t("hospitalPanel.reRanksNow", { label }),
       });
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Update failed";
+      const message =
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("hospitalPanel.updateFailed");
       setWriteError(message);
-      toast({ title: "Could not update", description: message, tone: "danger" });
+      toast({ title: t("hospitalPanel.updateFailed"), description: message, tone: "danger" });
     } finally {
       setBusyId(null);
     }
@@ -67,7 +74,7 @@ export function HospitalPanel() {
   const bedsFree = hospitals.reduce((sum, h) => sum + h.available_beds, 0);
   const icuFree = hospitals.reduce((sum, h) => sum + h.icu_beds_free, 0);
   const diverting = hospitals.filter(
-    (h) => hospitalStatus(h).label === "Diverting",
+    (h) => hospitalStatus(h).labelKey === "diverting",
   ).length;
   const erLoad = hospitals.length
     ? Math.round(
@@ -84,28 +91,28 @@ export function HospitalPanel() {
     <div className="flex flex-col gap-6">
       <StatGrid>
         <Stat
-          label="Beds free"
+          label={t("hospitalPanel.bedsFree")}
           value={bedsFree}
-          sub={`across ${hospitals.length} hospitals`}
+          sub={t("hospitalPanel.acrossHospitals", { count: hospitals.length })}
           tone={bedsFree === 0 ? "danger" : "neutral"}
           icon={<BedDouble className="size-3.5" />}
         />
         <Stat
-          label="ICU beds free"
+          label={t("hospitalPanel.icuBedsFree")}
           value={icuFree}
           tone={icuFree === 0 ? "danger" : "neutral"}
           icon={<HeartPulse className="size-3.5" />}
         />
         <Stat
-          label="Average ER load"
+          label={t("hospitalPanel.averageErLoad")}
           value={`${erLoad}%`}
           tone={erLoad >= 75 ? "warning" : "neutral"}
           icon={<Activity className="size-3.5" />}
         />
         <Stat
-          label="Diverting"
+          label={t("hospitalPanel.diverting")}
           value={diverting}
-          sub="cannot accept new patients"
+          sub={t("hospitalPanel.cannotAcceptNewPatients")}
           tone={diverting > 0 ? "danger" : "success"}
         />
       </StatGrid>
@@ -113,11 +120,9 @@ export function HospitalPanel() {
       <div className="flex items-center gap-2">
         <Badge tone={live ? "success" : "neutral"}>
           <Radio className="size-3" />
-          {live ? "Broadcasting live" : "Polling mode"}
+          {live ? t("hospitalPanel.broadcastingLive") : t("hospitalPanel.pollingMode")}
         </Badge>
-        <p className="text-sm text-muted">
-          Changes here re-rank the dispatcher&apos;s recommendation instantly.
-        </p>
+        <p className="text-sm text-muted">{t("hospitalPanel.changesReRankLive")}</p>
       </div>
 
       {writeError ? <ErrorState message={writeError} /> : null}
@@ -138,12 +143,14 @@ export function HospitalPanel() {
               <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <CardTitle>{hospital.name}</CardTitle>
-                  <Badge tone={status.tone}>{status.label}</Badge>
+                  <Badge tone={status.tone}>{t(`status.hospital.${status.labelKey}`)}</Badge>
                 </div>
-                <CardDescription>{status.detail}</CardDescription>
+                <CardDescription>{t(`status.hospitalDetail.${status.detailKey}`)}</CardDescription>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {hospital.specialties.map((specialty) => (
-                    <Badge key={specialty} tone="neutral">{specialty}</Badge>
+                    <Badge key={specialty} tone="neutral">
+                      {t(`status.specialty.${specialty}`)}
+                    </Badge>
                   ))}
                 </div>
               </CardHeader>
@@ -151,47 +158,59 @@ export function HospitalPanel() {
               <CardBody className="flex flex-col gap-4">
                 <Stepper
                   icon={<BedDouble className="size-4" />}
-                  label="Available beds"
+                  label={t("hospitalPanel.availableBeds")}
                   value={hospital.available_beds}
                   suffix={`/ ${hospital.total_beds}`}
                   tone={hospital.available_beds === 0 ? "danger" : "normal"}
                   disabled={busy}
                   onChange={(value) =>
-                    patch(hospital, { available_beds: value }, `${value} beds free`)
+                    patch(
+                      hospital,
+                      { available_beds: value },
+                      t("hospitalPanel.bedsFreeLabel", { count: value }),
+                    )
                   }
                 />
 
                 <Stepper
                   icon={<HeartPulse className="size-4" />}
-                  label="ICU beds free"
+                  label={t("hospitalPanel.icuBedsFree")}
                   value={hospital.icu_beds_free}
                   tone={hospital.icu_beds_free === 0 ? "danger" : "normal"}
                   disabled={busy}
                   onChange={(value) =>
-                    patch(hospital, { icu_beds_free: value }, `${value} ICU beds free`)
+                    patch(
+                      hospital,
+                      { icu_beds_free: value },
+                      t("hospitalPanel.icuBedsFreeLabel", { count: value }),
+                    )
                   }
                 />
 
                 <Stepper
                   icon={<Users className="size-4" />}
-                  label="ER queue"
+                  label={t("hospitalPanel.erQueue")}
                   value={hospital.current_er_queue}
                   suffix={`/ ${hospital.er_capacity} · ${erPercent}%`}
                   tone={erPercent >= 100 ? "danger" : erPercent >= 75 ? "warning" : "normal"}
                   disabled={busy}
                   onChange={(value) =>
-                    patch(hospital, { current_er_queue: value }, `ER queue at ${value}`)
+                    patch(
+                      hospital,
+                      { current_er_queue: value },
+                      t("hospitalPanel.erQueueAt", { count: value }),
+                    )
                   }
                 />
 
                 <div className="flex flex-col gap-2 border-t border-border pt-3">
                   <p className="text-xs font-medium uppercase tracking-wider text-muted">
-                    Specialists on duty
+                    {t("hospitalPanel.specialistsOnDuty")}
                   </p>
                   {Object.entries(hospital.doctors_on_duty).map(([specialty, count]) => (
                     <Stepper
                       key={specialty}
-                      label={specialty}
+                      label={t(`status.specialty.${specialty}`)}
                       value={count}
                       small
                       tone={count === 0 ? "danger" : "normal"}
@@ -205,7 +224,10 @@ export function HospitalPanel() {
                               [specialty]: value,
                             },
                           },
-                          `${value} ${specialty} on duty`,
+                          t("hospitalPanel.specialistsOnDutyLabel", {
+                            count: value,
+                            specialty: t(`status.specialty.${specialty}`),
+                          }),
                         )
                       }
                     />
@@ -239,6 +261,7 @@ function Stepper({
   disabled?: boolean;
   onChange: (value: number) => void;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-3">
       <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -252,7 +275,7 @@ function Stepper({
         <button
           onClick={() => onChange(Math.max(0, value - 1))}
           disabled={disabled || value <= 0}
-          aria-label={`Decrease ${label}`}
+          aria-label={t("hospitalPanel.decrease", { label })}
           className="grid size-7 place-items-center rounded-md border border-border text-muted transition-colors hover:bg-surface-muted hover:text-foreground disabled:opacity-40"
         >
           <Minus className="size-3.5" />
@@ -272,7 +295,7 @@ function Stepper({
         <button
           onClick={() => onChange(value + 1)}
           disabled={disabled}
-          aria-label={`Increase ${label}`}
+          aria-label={t("hospitalPanel.increase", { label })}
           className="grid size-7 place-items-center rounded-md border border-border text-muted transition-colors hover:bg-surface-muted hover:text-foreground disabled:opacity-40"
         >
           <Plus className="size-3.5" />

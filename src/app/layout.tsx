@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
 import { project } from "@/config/project";
+import { LocaleProvider } from "@/lib/i18n/context";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -38,29 +39,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: noFlashTheme }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <ToastProvider>
-          <SiteHeader />
-          <main className="flex-1">{children}</main>
-          <footer className="border-t border-border py-6">
-            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-5 text-sm text-muted">
-              <span>
-                {project.name} — built by {project.team}
-              </span>
-              <span className="ml-auto flex items-center gap-4">
-                {project.secondaryNav.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="transition-colors hover:text-foreground"
-                    title={link.blurb}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </span>
-            </div>
-          </footer>
-        </ToastProvider>
+        <LocaleProvider>
+          <ToastProvider>
+            <SiteHeader />
+            <main className="flex-1">{children}</main>
+            <SiteFooter />
+          </ToastProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Textarea } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/states";
+import { useT } from "@/lib/i18n/context";
 
 /**
  * The whole of the call-taking step: where the incident is, plus an
@@ -24,33 +25,36 @@ export function IntakePanel({
   onFindAmbulances: () => void;
   finding: boolean;
 }) {
+  const t = useT();
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Ambulance className="size-4 text-danger" />
-          119 call intake
+          {t("dispatcher.intakeTitle")}
         </CardTitle>
-        <CardDescription>
-          Click the map below to set the incident location, then find a
-          vehicle to send.
-        </CardDescription>
+        <CardDescription>{t("dispatcher.intakeDescription")}</CardDescription>
       </CardHeader>
 
       <CardBody className="flex flex-col gap-4">
-        <Field label="Note" htmlFor="note" hint="Optional — not needed to find a vehicle.">
+        <Field
+          label={t("dispatcher.noteLabel")}
+          htmlFor="note"
+          hint={t("dispatcher.intakeNoteHint")}
+        >
           <Textarea
             id="note"
             value={note}
             onChange={(event) => onNoteChange(event.target.value)}
             rows={3}
-            placeholder="e.g. MVA near Pyay Road"
+            placeholder={t("dispatcher.notePlaceholder")}
           />
         </Field>
 
         <Button onClick={onFindAmbulances} disabled={finding} className="self-start">
           {finding ? <Spinner /> : <Search className="size-4" />}
-          {finding ? "Finding…" : "Find ambulances"}
+          {finding ? t("dispatcher.finding") : t("dispatcher.findAmbulances")}
         </Button>
       </CardBody>
     </Card>

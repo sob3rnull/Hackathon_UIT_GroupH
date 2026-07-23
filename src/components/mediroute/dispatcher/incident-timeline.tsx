@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
 
 export interface TimelineStep {
@@ -20,11 +21,12 @@ export interface TimelineStep {
  * reads the clock during render.
  */
 export function IncidentTimeline({ steps }: { steps: TimelineStep[] }) {
+  const t = useT();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Incident timeline</CardTitle>
-        <CardDescription>Every step of this run, in order.</CardDescription>
+        <CardTitle>{t("dispatcher.incidentTimelineTitle")}</CardTitle>
+        <CardDescription>{t("dispatcher.incidentTimelineDesc")}</CardDescription>
       </CardHeader>
 
       <CardBody>

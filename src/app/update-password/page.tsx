@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateAuthError } from "@/lib/i18n/translate-auth-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
@@ -14,6 +16,8 @@ import { PageShell } from "@/components/ui/page";
  * path the way it does /login.
  */
 export default function UpdatePasswordPage() {
+  const t = useT();
+  const { locale } = useLocale();
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -24,13 +28,13 @@ export default function UpdatePasswordPage() {
     setError(null);
 
     if (password !== confirm) {
-      setError("Those two passwords don't match.");
+      setError(t("auth.passwordMismatch"));
       return;
     }
 
     const supabase = createClient();
     if (!supabase) {
-      setError("Supabase isn't configured.");
+      setError(t("auth.notConfiguredGeneric"));
       return;
     }
 
@@ -39,7 +43,7 @@ export default function UpdatePasswordPage() {
     setBusy(false);
 
     if (updateError) {
-      setError(updateError.message);
+      setError(translateAuthError(updateError.message, t, locale));
       return;
     }
 
@@ -52,14 +56,16 @@ export default function UpdatePasswordPage() {
       <div className="mx-auto w-full max-w-sm py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Choose a new password</CardTitle>
-            <CardDescription>
-              You&apos;ll go straight to your dashboard afterwards.
-            </CardDescription>
+            <CardTitle>{t("auth.updateTitle")}</CardTitle>
+            <CardDescription>{t("auth.updateSubtitle")}</CardDescription>
           </CardHeader>
           <CardBody>
             <form onSubmit={onSubmit} className="flex flex-col gap-4">
-              <Field label="New password" htmlFor="password" hint="At least 6 characters.">
+              <Field
+                label={t("auth.newPassword")}
+                htmlFor="password"
+                hint={t("auth.newPasswordHint")}
+              >
                 <Input
                   id="password"
                   type="password"
@@ -71,7 +77,7 @@ export default function UpdatePasswordPage() {
                 />
               </Field>
 
-              <Field label="Confirm new password" htmlFor="confirm">
+              <Field label={t("auth.confirmNewPassword")} htmlFor="confirm">
                 <Input
                   id="confirm"
                   type="password"
@@ -90,7 +96,7 @@ export default function UpdatePasswordPage() {
               ) : null}
 
               <Button type="submit" disabled={busy}>
-                {busy ? "Saving…" : "Save password"}
+                {busy ? t("auth.saving") : t("auth.savePassword")}
               </Button>
             </form>
           </CardBody>

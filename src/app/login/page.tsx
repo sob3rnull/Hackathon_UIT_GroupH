@@ -5,12 +5,16 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { HOME, isRole, safeNext } from "@/lib/auth/roles";
 import { project } from "@/config/project";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateAuthError } from "@/lib/i18n/translate-auth-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { PageShell } from "@/components/ui/page";
 
 export default function LoginPage() {
+  const t = useT();
+  const { locale } = useLocale();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -22,7 +26,7 @@ export default function LoginPage() {
 
     const supabase = createClient();
     if (!supabase) {
-      setError("Supabase isn't configured, so there's nothing to sign in to.");
+      setError(t("auth.notConfigured"));
       return;
     }
 
@@ -36,7 +40,7 @@ export default function LoginPage() {
     if (signInError) {
       // Supabase returns the same message for wrong password and unknown
       // address, which is what you want — don't help anyone enumerate users.
-      setError(signInError.message);
+      setError(translateAuthError(signInError.message, t, locale));
       return;
     }
 
@@ -57,14 +61,12 @@ export default function LoginPage() {
       <div className="mx-auto w-full max-w-sm py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Sign in to {project.name}</CardTitle>
-            <CardDescription>
-              Your account decides which dashboard you land on.
-            </CardDescription>
+            <CardTitle>{t("auth.signInTitle", { name: project.name })}</CardTitle>
+            <CardDescription>{t("auth.signInSubtitle")}</CardDescription>
           </CardHeader>
           <CardBody>
             <form onSubmit={onSubmit} className="flex flex-col gap-4">
-              <Field label="Email" htmlFor="email">
+              <Field label={t("auth.emailLabel")} htmlFor="email">
                 <Input
                   id="email"
                   type="email"
@@ -75,7 +77,7 @@ export default function LoginPage() {
                 />
               </Field>
 
-              <Field label="Password" htmlFor="password">
+              <Field label={t("auth.passwordLabel")} htmlFor="password">
                 <Input
                   id="password"
                   type="password"
@@ -93,15 +95,15 @@ export default function LoginPage() {
               ) : null}
 
               <Button type="submit" disabled={busy}>
-                {busy ? "Signing in…" : "Sign in"}
+                {busy ? t("auth.signingIn") : t("auth.signIn")}
               </Button>
 
               <div className="flex flex-col gap-1 text-center text-xs text-muted">
                 <Link href="/reset-password" className="hover:text-foreground">
-                  Forgot your password?
+                  {t("auth.forgotPassword")}
                 </Link>
                 <Link href="/register" className="hover:text-foreground">
-                  Create an account
+                  {t("auth.createAccount")}
                 </Link>
               </div>
             </form>

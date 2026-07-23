@@ -1,4 +1,8 @@
+"use client";
+
 import { AlertTriangle, Check } from "lucide-react";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateReason } from "@/lib/i18n/translate-reason";
 import { cn } from "@/lib/utils";
 
 /**
@@ -8,6 +12,11 @@ import { cn } from "@/lib/utils";
  * wording of its own, it only decides whether a line reads as a reason to go
  * ("22 beds free") or a caveat to notice ("No ICU bed free", "ER at 95%
  * capacity"), so nobody is ticking a green check next to bad news.
+ *
+ * `isCaution()` pattern-matches the engine's untouched English output, so
+ * translation (via `translateReason`) only ever changes what's displayed,
+ * never what's classified — the same reason reads as a caution in either
+ * language.
  *
  * Shared by the dispatcher's ambulance justification and the crew's hospital
  * justification — both are "why this one", just for different decisions.
@@ -29,6 +38,9 @@ export function ReasonList({
   reasons: string[];
   className?: string;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
+
   return (
     <ul className={cn("flex flex-col gap-1.5", className)}>
       {reasons.map((reason, index) => {
@@ -40,7 +52,9 @@ export function ReasonList({
             ) : (
               <Check className="mt-0.5 size-3.5 shrink-0 text-success" />
             )}
-            <span className={caution ? "text-warning" : undefined}>{reason}</span>
+            <span className={caution ? "text-warning" : undefined}>
+              {translateReason(reason, t, locale)}
+            </span>
           </li>
         );
       })}

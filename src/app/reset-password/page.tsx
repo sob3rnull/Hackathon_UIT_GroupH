@@ -3,12 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateAuthError } from "@/lib/i18n/translate-auth-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { PageShell } from "@/components/ui/page";
 
 export default function ResetPasswordPage() {
+  const t = useT();
+  const { locale } = useLocale();
   const [email, setEmail] = React.useState("");
   const [sent, setSent] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -20,7 +24,7 @@ export default function ResetPasswordPage() {
 
     const supabase = createClient();
     if (!supabase) {
-      setError("Supabase isn't configured, so no email can be sent.");
+      setError(t("auth.notConfiguredReset"));
       return;
     }
 
@@ -32,7 +36,7 @@ export default function ResetPasswordPage() {
 
     // Report success either way. Telling the caller "no such account" would
     // turn this form into a user-enumeration oracle.
-    if (resetError) setError(resetError.message);
+    if (resetError) setError(translateAuthError(resetError.message, t, locale));
     else setSent(true);
   }
 
@@ -41,20 +45,17 @@ export default function ResetPasswordPage() {
       <div className="mx-auto w-full max-w-sm py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Reset your password</CardTitle>
-            <CardDescription>
-              We&apos;ll email you a link to choose a new one.
-            </CardDescription>
+            <CardTitle>{t("auth.resetTitle")}</CardTitle>
+            <CardDescription>{t("auth.resetSubtitle")}</CardDescription>
           </CardHeader>
           <CardBody>
             {sent ? (
               <p className="text-sm text-muted">
-                If an account exists for <strong>{email}</strong>, a reset link is
-                on its way. The link expires shortly, so use it soon.
+                {t("auth.resetSent", { email: `${email}` })}
               </p>
             ) : (
               <form onSubmit={onSubmit} className="flex flex-col gap-4">
-                <Field label="Email" htmlFor="email">
+                <Field label={t("auth.emailLabel")} htmlFor="email">
                   <Input
                     id="email"
                     type="email"
@@ -72,7 +73,7 @@ export default function ResetPasswordPage() {
                 ) : null}
 
                 <Button type="submit" disabled={busy}>
-                  {busy ? "Sending…" : "Send reset link"}
+                  {busy ? t("auth.sending") : t("auth.sendResetLink")}
                 </Button>
               </form>
             )}
@@ -81,7 +82,7 @@ export default function ResetPasswordPage() {
               href="/login"
               className="mt-4 block text-center text-xs text-muted hover:text-foreground"
             >
-              Back to sign in
+              {t("auth.backToSignIn")}
             </Link>
           </CardBody>
         </Card>

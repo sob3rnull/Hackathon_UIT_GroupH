@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Ambulance,
@@ -9,6 +11,7 @@ import {
   PhoneCall,
 } from "lucide-react";
 import { project } from "@/config/project";
+import { useT } from "@/lib/i18n/context";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardDescription, CardTitle } from "@/components/ui/card";
 import { HospitalDirectory } from "@/components/mediroute/hospital-directory";
@@ -26,17 +29,22 @@ const roleIcons: Record<string, typeof PhoneCall> = {
   "/history": ClipboardList,
 };
 
+/** project.nav order → the dictionary's nav.* key for that route. */
+const NAV_KEYS = ["dispatcher", "hospital", "ambulance", "history"] as const;
+
 export default function HomePage() {
+  const t = useT();
+
   return (
     <>
       <section className="hero-glow border-b border-border">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-5 py-14 text-center sm:py-18">
-          <Badge tone="accent">Yangon emergency care network</Badge>
+          <Badge tone="accent">{t("home.heroBadge")}</Badge>
 
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-            Every minute matters. Help hospitals stay ready.
+            {t("home.heroTitle")}
           </h1>
-          <p className="max-w-2xl text-lg text-muted">{project.tagline}</p>
+          <p className="max-w-2xl text-lg text-muted">{t("project.tagline")}</p>
 
           <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
             <a
@@ -44,13 +52,13 @@ export default function HomePage() {
               className="group inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent-hover"
             >
               <HeartHandshake className="size-4" />
-              Support a hospital
+              {t("home.supportCta")}
             </a>
             <Link
               href="/dispatcher"
               className="group inline-flex h-10 items-center gap-2 rounded-lg border border-border px-4 text-sm font-medium transition-colors hover:bg-surface-muted"
             >
-              Open the dispatch console
+              {t("home.openConsole")}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
@@ -62,16 +70,14 @@ export default function HomePage() {
       {/* ── Role entry points ────────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-7xl px-5 py-12">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold tracking-tight">For responders</h2>
-          <p className="text-sm text-muted">
-            Each role sees only what it needs. Sign in to reach your dashboard —
-            an administrator assigns your role.
-          </p>
+          <h2 className="text-xl font-semibold tracking-tight">{t("home.forResponders")}</h2>
+          <p className="text-sm text-muted">{t("home.forRespondersDesc")}</p>
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {project.nav.map((link) => {
+          {project.nav.map((link, index) => {
             const Icon = roleIcons[link.href] ?? MapPin;
+            const key = NAV_KEYS[index];
             return (
               <Link key={link.href} href={link.href} className="group">
                 <Card className="h-full transition-colors group-hover:border-accent/50">
@@ -82,9 +88,9 @@ export default function HomePage() {
                       </span>
                       <ArrowRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
                     </div>
-                    <CardTitle>{link.label}</CardTitle>
-                    <p className="text-xs font-medium text-muted">{link.role}</p>
-                    <CardDescription>{link.blurb}</CardDescription>
+                    <CardTitle>{t(`nav.${key}.label`)}</CardTitle>
+                    <p className="text-xs font-medium text-muted">{t(`nav.${key}.role`)}</p>
+                    <CardDescription>{t(`nav.${key}.blurb`)}</CardDescription>
                   </CardBody>
                 </Card>
               </Link>

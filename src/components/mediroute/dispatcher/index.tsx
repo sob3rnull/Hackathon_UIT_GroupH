@@ -6,6 +6,8 @@ import { ErrorState } from "@/components/ui/states";
 import { Section } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { googleMapsAvailable } from "@/components/mediroute/google-map";
+import { useLocale, useT } from "@/lib/i18n/context";
+import { translateApiError } from "@/lib/i18n/translate-error";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useDispatches } from "@/lib/mediroute/use-dispatches";
@@ -45,6 +47,8 @@ const NO_MARKS: Marks = { call: null, assigned: null, confirmed: null };
  * lives in neither place and is untouched by anything here.
  */
 export function Dispatcher() {
+  const t = useT();
+  const { locale } = useLocale();
   const { hospitals, loading, error, live } = useHospitals();
   const { ambulances, revision: fleetRevision } = useFleet();
   const { dispatches } = useDispatches();
@@ -81,11 +85,16 @@ export function Dispatcher() {
           : (fleet.candidates[0]?.ambulance.id ?? null),
       );
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "Planning failed");
+      setActionError(
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("dispatcher.planningFailed"),
+      );
     } finally {
       setPlanning(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
 
   // Live re-plan when fleet status changes elsewhere. Stops once assigned:
   // this incident's fleet decision is already made, so further fleet churn
@@ -160,13 +169,16 @@ export function Dispatcher() {
       setAssignedDispatchId(row.id);
       setMarks((current) => ({ ...current, assigned: Date.now() }));
       toast({
-        title: `${candidate.ambulance.callsign} assigned`,
-        description: "Triage and hospital choice are now on their tablet.",
+        title: t("dispatcher.assignedToastTitle", { callsign: candidate.ambulance.callsign }),
+        description: t("dispatcher.assignedToastDesc"),
       });
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Assignment failed";
+      const message =
+        cause instanceof Error
+          ? translateApiError(cause.message, t, locale)
+          : t("dispatcher.assignmentFailed");
       setActionError(message);
-      toast({ title: "Assignment failed", description: message, tone: "danger" });
+      toast({ title: t("dispatcher.assignmentFailed"), description: message, tone: "danger" });
     } finally {
       setAssigning(false);
     }
@@ -181,27 +193,34 @@ export function Dispatcher() {
 
   const timeline: TimelineStep[] = [
     {
-      label: "Call received",
+      label: t("dispatcher.timelineCallReceived"),
       at: marks.call,
       detail: marks.call
         ? note.trim()
           ? note.slice(0, 80)
-          : "No note — location only"
-        : "Waiting for a 119 call",
+          : t("dispatcher.noNoteLocationOnly")
+        : t("dispatcher.waitingForCall"),
     },
     {
-      label: "Ambulance assigned",
+      label: t("dispatcher.timelineAssigned"),
       at: marks.assigned,
       detail: assignedCallsign
-        ? `${assignedCallsign} · ${Math.round(candidate?.responseMinutes ?? 0)} min to scene`
+        ? t("dispatcher.minToScene", {
+            callsign: assignedCallsign,
+            count: Math.round(candidate?.responseMinutes ?? 0),
+          })
         : null,
     },
     {
-      label: "Triaged & hospital confirmed by crew",
+      label: t("dispatcher.timelineConfirmed"),
       at: marks.confirmed,
       detail:
         assignedDispatch?.hospital_id && assignedHospitalName
-          ? `${assignedDispatch.severity} ${assignedDispatch.condition} → ${assignedHospitalName}`
+          ? t("dispatcher.confirmedDetail", {
+              severity: t(`status.severity.${assignedDispatch.severity}`),
+              condition: t(`status.condition.${assignedDispatch.condition}`),
+              hospital: assignedHospitalName,
+            })
           : null,
     },
   ];
@@ -213,8 +232,8 @@ export function Dispatcher() {
 
       {/* ── Top: the call ────────────────────────────────────────────────── */}
       <Section
-        title="Emergency intake"
-        description="What the caller reported — enough to find and send the nearest vehicle."
+        title={t("dispatcher.sectionIntakeTitle")}
+        description={t("dispatcher.sectionIntakeDesc")}
       >
         <IntakePanel
           note={note}
@@ -227,13 +246,13 @@ export function Dispatcher() {
       {/* ── Middle: the one decision — which ambulance ───────────────────── */}
       {fleetPick ? (
         <Section
-          title="Assign an ambulance"
-          description="Your only decision here. Triage and the hospital pick happen on the crew's tablet."
+          title={t("dispatcher.sectionAssignTitle")}
+          description={t("dispatcher.sectionAssignDesc")}
         >
           {staleNotice ? (
             <div className="flex items-center gap-2 rounded-card border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
               <Radio className="size-4 shrink-0 text-accent" />
-              Fleet status changed elsewhere — list updated.
+              {t("dispatcher.staleNoticeText")}
             </div>
           ) : null}
 
@@ -258,8 +277,8 @@ export function Dispatcher() {
 
       {/* ── Bottom: the evidence ─────────────────────────────────────────── */}
       <Section
-        title="Situation"
-        description="Live view of the fleet, hospitals and the incident."
+        title={t("dispatcher.sectionSituationTitle")}
+        description={t("dispatcher.sectionSituationDesc")}
       >
         <div className="flex flex-col gap-4">
           <MapPanel

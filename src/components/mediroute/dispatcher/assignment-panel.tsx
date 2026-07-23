@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/states";
 import { ReasonList } from "@/components/mediroute/reasons";
+import { useT } from "@/lib/i18n/context";
 import type { AmbulanceCandidate } from "@/lib/mediroute/types";
 
 /**
@@ -30,19 +31,17 @@ export function AssignmentPanel({
   /** Filled in once the crew has picked, via the live dispatch poll. */
   assignedHospitalName: string | null | undefined;
 }) {
+  const t = useT();
+
   if (assignedCallsign) {
     return (
       <div className="flex items-start gap-2 rounded-card border border-success/40 bg-success/12 px-4 py-3 text-sm">
         <ShieldCheck className="size-4 shrink-0 text-success" />
         <span>
-          <strong>{assignedCallsign}</strong> assigned and en route to the scene.{" "}
-          {assignedHospitalName ? (
-            <>
-              Crew has chosen <strong>{assignedHospitalName}</strong>.
-            </>
-          ) : (
-            "Choosing a hospital is now on their tablet."
-          )}
+          {t("dispatcher.assignedInfo", { callsign: assignedCallsign })}{" "}
+          {assignedHospitalName
+            ? t("dispatcher.crewChosen", { hospital: assignedHospitalName })
+            : t("dispatcher.choosingOnTablet")}
         </span>
       </div>
     );
@@ -54,9 +53,9 @@ export function AssignmentPanel({
         <div className="flex flex-col gap-1">
           <CardTitle className="flex items-center gap-2">
             <AmbulanceIcon className="size-4 text-warning" />
-            Recommended ambulance
+            {t("dispatcher.recommendedAmbulance")}
           </CardTitle>
-          <CardDescription>Nearest certified vehicle on the road</CardDescription>
+          <CardDescription>{t("dispatcher.nearestCertified")}</CardDescription>
         </div>
         {planning ? <Spinner /> : null}
       </CardHeader>
@@ -68,27 +67,33 @@ export function AssignmentPanel({
               <span className="text-2xl font-semibold tracking-tight">
                 {candidate.ambulance.callsign}
               </span>
-              <Badge tone="neutral">{candidate.ambulance.crew_level} crew</Badge>
+              <Badge tone="neutral">
+                {t("dispatcher.crewLabel", {
+                  crew: t(
+                    candidate.ambulance.crew_level === "advanced"
+                      ? "ambulancePage.crewAdvanced"
+                      : "ambulancePage.crewBasic",
+                  ),
+                })}
+              </Badge>
               <span className="text-sm text-muted">{candidate.ambulance.operator}</span>
             </div>
 
             <ReasonList
               reasons={[
-                `${Math.round(candidate.responseMinutes)} min to reach the patient`,
-                `${candidate.distanceKm.toFixed(1)} km from the incident`,
-                "Certified, with a live GPS fix",
+                t("dispatcher.minToReach", { count: Math.round(candidate.responseMinutes) }),
+                t("dispatcher.kmFromIncident", { km: candidate.distanceKm.toFixed(1) }),
+                t("dispatcher.certifiedGpsFix"),
               ]}
             />
 
             <Button onClick={onConfirm} disabled={assigning} className="self-start">
               <Check className="size-4" />
-              {assigning ? "Assigning…" : "Assign ambulance"}
+              {assigning ? t("dispatcher.assigningLabel") : t("dispatcher.assignAmbulanceButton")}
             </Button>
           </>
         ) : (
-          <p className="text-sm text-danger">
-            No dispatchable ambulance. Escalate manually.
-          </p>
+          <p className="text-sm text-danger">{t("dispatcher.noDispatchable")}</p>
         )}
       </CardBody>
     </Card>
