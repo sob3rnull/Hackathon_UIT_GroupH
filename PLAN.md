@@ -11,7 +11,8 @@ live bed occupancy, specialist availability, and ER load.
 
 > **This is an hour-0 planning document, not a spec.** The build has since gone past
 > it in several places — a public landing page with a hospital directory and demo
-> donations was added, and ambulance selection now happens *before* triage (the
+> donations was added, email/password auth with three roles and RLS was built (§6
+> originally skipped it), and ambulance selection now happens *before* triage (the
 > ranking engine never needed triage to pick a vehicle, only the incident location),
 > so triage and the hospital pick moved to the crew's own screen instead of staying
 > on the dispatcher's. **[README.md](README.md) describes what's actually built and
@@ -260,8 +261,14 @@ screenshot the map early as a fallback slide, and make sure the app is *usable a
 demoable with the map panel collapsed*. The ranking engine is the substance; the map is
 decoration. Don't let decoration take the demo down.
 
-**Explicitly skipped:** auth, real hospital integrations, mobile app, production
+**Explicitly skipped:** ~~auth~~, real hospital integrations, mobile app, production
 hardening. Add: **no PHI, no real patient data, ever** — use obviously fictional names.
+
+> **[CHANGED — auth was un-skipped.]** Email/password sign-in with three roles
+> (`dispatcher`, `ambulance`, `hospital`) and real RLS was built after this doc:
+> `profiles` holds role + scope, mirrored into the JWT so policies cost no extra
+> query. It's off by default — blank Supabase env vars = memory mode, no auth — and
+> the live DB isn't switched over yet. See README **Authentication & roles**.
 
 ---
 

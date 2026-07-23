@@ -28,8 +28,10 @@ export const project = {
   },
 
   /**
-   * One screen per role. There is no sign-in yet, so the route *is* the role —
-   * when auth lands, each of these becomes a permission instead of a link.
+   * One screen per role. Auth has landed: middleware + RLS gate each of these
+   * by the signed-in user's role. In memory mode (no Supabase) the gate is off
+   * and the route is reachable directly, which is what keeps the offline demo
+   * working.
    */
   nav: [
     {

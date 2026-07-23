@@ -64,8 +64,8 @@ export default function HomePage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold tracking-tight">For responders</h2>
           <p className="text-sm text-muted">
-            Each role sees only what it needs. Sign-in is not implemented yet —
-            for now the route is the role.
+            Each role sees only what it needs. Sign in to reach your dashboard —
+            an administrator assigns your role.
           </p>
         </div>
 

@@ -49,8 +49,11 @@ const VEHICLE_KEY = "mediroute:vehicle";
  * everything here is deliberately larger than the rest of the app and the
  * controls are full-height targets rather than dense rows.
  *
- * There is no sign-in yet, so the crew picks its own vehicle once and the
- * choice is remembered on the device — the seam where auth will slot in.
+ * The crew picks its own vehicle once and the choice is remembered on the
+ * device. Auth now binds a crew account to one vehicle (profiles.ambulance_id)
+ * and RLS scopes dispatch reads/writes to it, but this screen isn't yet wired
+ * to read that from the session — the picker is still the seam where the
+ * session's assigned vehicle will slot in.
  *
  * Picks up where the dispatcher leaves off: dispatch assigns a vehicle from
  * nothing but the incident location and stops there, so a fresh mission

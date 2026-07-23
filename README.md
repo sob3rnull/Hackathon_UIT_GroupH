@@ -25,12 +25,45 @@ piece independently — see [`.env.example`](.env.example).
 | `/dispatcher` | 119 call taker | Log an **optional** note + click the map for the incident, then assign the nearest dispatchable ambulance. That's the whole job. |
 | `/ambulance` | Crew on board | Dictate (Burmese/English) or type the patient description, run triage themselves, pick the hospital, advance status through the run. |
 | `/hospital` | *(stands in for the HIS feed)* | Live bed / ICU / roster / ER capacity |
-| `/history` | Everyone | Every past incident, searchable, with what was recommended vs. what was chosen |
-| `/fleet` | *(stands in for the IoT units)* | Vehicle status, GPS freshness, certification |
+| `/history` | Dispatcher | Every past incident, searchable, with what was recommended vs. what was chosen |
+| `/fleet` | Dispatcher | Vehicle status, GPS freshness, certification |
+| `/login` · `/register` | Anyone | Email/password sign-in and self-service sign-up. A new account has no role and waits on `/pending` until an admin assigns one. |
 
 Changes on `/hospital` or `/fleet` re-rank `/dispatcher` and `/ambulance` instantly
 over Supabase Realtime — no refresh, no socket server. **Run at least one panel on a
 second machine during the demo.**
+
+Once Supabase auth is enabled, the operational screens are gated by role — a crew
+login can't open `/dispatcher`, a hospital login can't open `/fleet` — while `/` and
+the donation flow stay public. See **Authentication & roles** below.
+
+---
+
+## Authentication & roles
+
+Sign-in is **email/password via Supabase Auth**, with three roles — `dispatcher`,
+`ambulance`, `hospital` — enforced at two layers:
+
+- **Middleware** (`src/middleware.ts`) routes each session to its own dashboard and
+  bounces cross-role access. UX only, not a security boundary.
+- **Row Level Security** is the real enforcement. `public.profiles` holds each user's
+  role + scope (which vehicle, which hospital); a trigger mirrors that into the JWT's
+  `app_metadata`, so policies read it with no extra query. Dispatchers read all
+  dispatches and create them; crews see only their own vehicle's; hospital staff edit
+  only their own hospital. Hospital *capacity* stays publicly readable — the `/`
+  directory shows it — but every write is role-scoped.
+
+Roles are **admin-provisioned**: `/register` creates an account with no role, which
+waits on `/pending`. An administrator assigns the role by inserting a `profiles` row.
+
+**Current state:** implemented in code, **not yet applied to the live database.** The
+live DB still runs the open hackathon policies (migrations `0001`–`0006`). To switch a
+project over: create the demo users in the Supabase dashboard, then run
+[`supabase/apply_auth_demo.sql`](supabase/apply_auth_demo.sql) — it applies the auth
+schema + RLS (`0007`), seeds demo data (`0008`), and links the three profiles by email
+in one transaction that rolls back if the users don't exist yet. With Supabase env
+vars **blank**, the app stays in memory mode and skips auth entirely, so the offline
+demo is unaffected.
 
 ---
 
@@ -328,8 +361,10 @@ src/
     backend.ts              ← local routes vs. n8n webhooks, one seam
     feeds/
       hospital-feed.ts     ← the HIS seam: manual today, live feed later
-    use-hospitals.ts | use-fleet.ts | use-dispatches.ts | use-donations.ts
+    use-hospitals.ts | use-fleet.ts | use-dispatches.ts
       ← Realtime subscriptions, poll when Supabase is absent
+    use-donations.ts   ← polls only; donations are off Realtime so payer_phone
+                          can't ride the websocket past the column grant
     types.ts               ← zod schemas + shared types
     n8n-parity.test.ts     ← asserts n8n/ranking-core.js == engine.ts
   components/mediroute/
@@ -347,8 +382,15 @@ src/
   app/api/
     triage · transcribe · route · ambulances · ambulances/[id]
     hospitals · hospitals/[id] · recommend · dispatch · dispatch/confirm
-    donations · health
-supabase/migrations/ ← schema + seed, including donations (0004)
+    donations · donations/otp · health
+  app/                    ← auth pages: login · register · reset-password ·
+                            update-password · pending · auth/callback · auth/signout
+  middleware.ts           ← session refresh + role routing
+  lib/auth/roles.ts       ← Role type, route map, path guards
+supabase/
+  migrations/ ← schema + seed (0001–0008); donations 0004–0006,
+                auth + RBAC 0007, demo data 0008
+  apply_auth_demo.sql ← one-shot: applies 0007+0008 and links demo profiles by email
 ```
 
 ---
@@ -419,9 +461,12 @@ editable by the crew before they confirm, and the final routing — both which v
 and which hospital — is always a human decision, made by two different people at two
 different moments so neither call happens under time pressure alone.
 
-> ⚠️ **The RLS policies are wide open.** No auth exists, so `hospitals`,
-> `dispatches` and `donations` grant the anon role unconditional read/write, and the
-> anon key ships in the browser bundle. Fine for fictional demo data; replace before
-> this outlives the hackathon. Never put real patient information in this database.
+> ⚠️ **Auth + RBAC exist in code but aren't applied to the live database yet.** Until
+> [`supabase/apply_auth_demo.sql`](supabase/apply_auth_demo.sql) is run, the live DB
+> still grants the anon role unconditional read/write (migrations `0001`–`0006`), and
+> the anon key ships in the browser bundle. Fine for fictional demo data. Once `0007`
+> is applied, `dispatches`, `ambulances` and hospital *writes* are role-scoped, and
+> `donations.payer_phone` is stripped at the grant — but **never put real patient
+> information in this database** regardless. See **Authentication & roles** above.
 
 See [PLAN.md](PLAN.md) for the original build plan, cut list, and judging Q&A prep.

@@ -23,9 +23,11 @@ type CapacityPatch = Partial<
  * alt-tabbing to change your own data in front of judges undercuts the whole
  * illusion that this is live inter-hospital state.
  *
- * Every hospital is listed rather than just "yours": there is no sign-in yet,
- * and being able to change any of them is what makes the live re-ranking
- * demonstrable from one room.
+ * Every hospital is listed rather than just "yours": being able to change any
+ * of them is what makes the live re-ranking demonstrable from one room. Auth +
+ * RLS now scope hospital *writes* to the signed-in staff's own hospital, but
+ * this screen isn't yet narrowed to it — scoping the UI to jwt_hospital_id is
+ * follow-up. In memory mode (no Supabase) it stays fully open for the demo.
  */
 export function HospitalPanel() {
   const { hospitals, loading, error, live, reload } = useHospitals();
