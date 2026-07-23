@@ -27,6 +27,7 @@ type Profile = {
 };
 
 type HospitalOption = { id: string; short_name: string };
+type VehicleOption = { id: string; callsign: string };
 
 /**
  * View and edit your own profile. RLS lets you touch only your row, and the
@@ -38,6 +39,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [userId, setUserId] = React.useState<string | null>(null);
   const [hospitals, setHospitals] = React.useState<HospitalOption[]>([]);
+  const [vehicles, setVehicles] = React.useState<VehicleOption[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   // editable / creatable fields
@@ -46,6 +48,7 @@ export default function ProfilePage() {
   const [organization, setOrganization] = React.useState("");
   const [role, setRole] = React.useState<Role>("dispatcher");
   const [hospitalId, setHospitalId] = React.useState("");
+  const [ambulanceId, setAmbulanceId] = React.useState("");
 
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
@@ -70,13 +73,15 @@ export default function ProfilePage() {
       }
       setUserId(user.id);
 
-      const [{ data: row }, hospRes] = await Promise.all([
+      const [{ data: row }, hospRes, vehRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
         fetch("/api/hospitals").then((r) => r.json()).catch(() => null),
+        fetch("/api/ambulances").then((r) => r.json()).catch(() => null),
       ]);
       if (cancelled) return;
 
       if (hospRes?.ok) setHospitals(hospRes.data);
+      if (vehRes?.ok) setVehicles(vehRes.data);
 
       if (row) {
         const p = row as Profile;
@@ -124,6 +129,11 @@ export default function ProfilePage() {
       setError("Hospital staff must choose their hospital.");
       return;
     }
+    if (role === "ambulance" && !ambulanceId) {
+      setBusy(false);
+      setError("Ambulance crew must choose their vehicle.");
+      return;
+    }
     const { data: created, error: insErr } = await supabase
       .from("profiles")
       .insert({
@@ -133,6 +143,7 @@ export default function ProfilePage() {
         phone,
         organization,
         hospital_id: role === "hospital" ? hospitalId : null,
+        ambulance_id: role === "ambulance" ? ambulanceId : null,
       })
       .select("*")
       .single();
@@ -217,6 +228,22 @@ export default function ProfilePage() {
                           {hospitals.map((h) => (
                             <option key={h.id} value={h.id}>
                               {h.short_name}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    ) : null}
+                    {role === "ambulance" ? (
+                      <Field label="Your vehicle" htmlFor="vehicle">
+                        <Select
+                          id="vehicle"
+                          value={ambulanceId}
+                          onChange={(e) => setAmbulanceId(e.target.value)}
+                        >
+                          <option value="">Select a vehicle…</option>
+                          {vehicles.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.callsign}
                             </option>
                           ))}
                         </Select>
