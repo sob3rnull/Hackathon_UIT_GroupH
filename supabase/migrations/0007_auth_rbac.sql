@@ -123,9 +123,11 @@ create policy "orgs readable" on public.organizations
   for select to authenticated using (true);
 
 -- ─── hospitals ──────────────────────────────────────────────────────────
--- everyone signed in reads capacity (dispatcher ranking, crew hospital list)
+-- Capacity is public: the "/" directory shows it to unauthenticated visitors,
+-- and dispatcher ranking + crew hospital lists read it too. anon is included
+-- deliberately; writes remain locked to hospital staff by the policy below.
 create policy "hospitals readable" on public.hospitals
-  for select to authenticated using (true);
+  for select to anon, authenticated using (true);
 
 create policy "hospital staff edit own" on public.hospitals
   for update to authenticated

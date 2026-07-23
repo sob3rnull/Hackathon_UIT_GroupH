@@ -39,7 +39,13 @@ export const GUARD: ReadonlyArray<readonly [string, readonly Role[]]> = [
  * wall, which defeats its whole purpose.
  */
 export function isOpenPath(path: string): boolean {
-  return path === "/" || path.startsWith("/api/donations");
+  return (
+    path === "/" ||
+    // The public directory reads live hospital capacity. GET-only list route;
+    // capacity WRITES live on /api/hospitals/[id], which this does not match.
+    path === "/api/hospitals" ||
+    path.startsWith("/api/donations")
+  );
 }
 
 /** Paths reachable without a session. */

@@ -119,9 +119,11 @@ drop policy if exists "orgs readable" on public.organizations;
 create policy "orgs readable" on public.organizations
   for select to authenticated using (true);
 
+-- Capacity is public: the "/" directory shows it to unauthenticated visitors.
+-- Writes stay locked to hospital staff by the next policy.
 drop policy if exists "hospitals readable" on public.hospitals;
 create policy "hospitals readable" on public.hospitals
-  for select to authenticated using (true);
+  for select to anon, authenticated using (true);
 
 drop policy if exists "hospital staff edit own" on public.hospitals;
 create policy "hospital staff edit own" on public.hospitals
