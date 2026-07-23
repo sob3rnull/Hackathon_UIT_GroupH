@@ -146,9 +146,12 @@ export async function updateHospital(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select(HOSPITAL_COLUMNS)
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+  // null means the row was filtered out by RLS (not your hospital) rather than
+  // updated — surface that plainly instead of PostgREST's coercion error.
+  if (!data) throw new Error("Hospital not found or not permitted.");
   return data as Hospital;
 }
 
@@ -229,9 +232,12 @@ export async function updateAmbulance(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select(AMBULANCE_COLUMNS)
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+  // null = RLS filtered it out (e.g. a crew acting on a vehicle that isn't
+  // theirs). Clear message beats "Cannot coerce the result to a single JSON".
+  if (!data) throw new Error("Vehicle not found or not assigned to you.");
   return data as Ambulance;
 }
 
@@ -290,9 +296,10 @@ export async function createDispatch(input: DispatchInput): Promise<DispatchRow>
     .from("dispatches")
     .insert(input)
     .select("*")
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Dispatch could not be created (not permitted).");
   return data as DispatchRow;
 }
 
@@ -335,9 +342,10 @@ export async function updateDispatch(
     .update(patch)
     .eq("id", id)
     .select("*")
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Dispatch not found or not permitted.");
   return data as DispatchRow;
 }
 
@@ -411,9 +419,10 @@ export async function createDonation(input: DonationInput): Promise<PublicDonati
     .from("donations")
     .insert(input)
     .select(DONATION_PUBLIC_COLUMNS)
-    .single();
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("Donation could not be saved.");
   return data as PublicDonation;
 }
 
