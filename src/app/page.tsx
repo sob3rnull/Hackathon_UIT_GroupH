@@ -15,6 +15,7 @@ import { useT } from "@/lib/i18n/context";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardDescription, CardTitle } from "@/components/ui/card";
 import { HospitalDirectory } from "@/components/mediroute/hospital-directory";
+import { ImpactGallery } from "@/components/mediroute/impact-gallery";
 
 /**
  * The public face of WheeYaw: a directory of the hospitals in the network
@@ -66,6 +67,8 @@ export default function HomePage() {
       </section>
 
       <HospitalDirectory />
+
+      <ImpactGallery />
 
       {/* ── Role entry points ────────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-7xl px-5 py-12">
