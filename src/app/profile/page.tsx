@@ -3,6 +3,7 @@
 import * as React from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ROLES, type Role, isRole } from "@/lib/auth/roles";
+import { MediaManager } from "@/components/admin/media-manager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -158,8 +159,8 @@ export default function ProfilePage() {
 
   return (
     <PageShell>
-      <div className="mx-auto w-full max-w-md py-12">
-        <Card>
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 py-12">
+        <Card className="mx-auto w-full max-w-md">
           <CardHeader>
             <CardTitle>Your profile</CardTitle>
             <CardDescription>
@@ -297,6 +298,8 @@ export default function ProfilePage() {
             ) : null}
           </CardBody>
         </Card>
+
+        {profile?.role === "admin" ? <MediaManager /> : null}
       </div>
     </PageShell>
   );

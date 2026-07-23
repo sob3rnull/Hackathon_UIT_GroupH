@@ -480,6 +480,28 @@ const en = {
     updateFailed: "Update failed",
   },
 
+  admin: {
+    mediaTitle: "Site photos",
+    mediaDescription:
+      "Replace the hero background and logo, or add/remove photos in the public page's gallery.",
+    mediaNotConfigured: "Connect Supabase to manage site photos.",
+    mediaHero: "Hero background",
+    mediaHeroHint: "Shown faded behind the headline on the public homepage.",
+    mediaLogo: "Logo",
+    mediaLogoHint: "Shown in the header and browser tab icon.",
+    mediaReplace: "Replace",
+    mediaGallery: "Impact gallery",
+    mediaGalleryHint: "Photos shown on the public homepage, in this order.",
+    mediaGalleryEmpty: "No photos yet — add one to get started.",
+    mediaAddPhoto: "Add photo",
+    mediaRemovePhoto: "Remove photo",
+    mediaUpdated: "Photo updated",
+    mediaAdded: "Photo added",
+    mediaRemoved: "Photo removed",
+    mediaUploadFailed: "Upload failed",
+    mediaRemoveFailed: "Could not remove the photo",
+  },
+
   auth: {
     signInTitle: "Sign in to {{name}}",
     createAccount: "Create an account",

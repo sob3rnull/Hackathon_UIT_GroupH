@@ -480,6 +480,28 @@ const my = {
     updateFailed: "အပ်ဒိတ် မအောင်မြင်ပါ",
   },
 
+  admin: {
+    mediaTitle: "ဝဘ်ဆိုက် ဓာတ်ပုံများ",
+    mediaDescription:
+      "hero နောက်ခံနှင့် လိုဂိုကို ပြောင်းလဲပါ၊ သို့မဟုတ် public စာမျက်နှာ၏ ဓာတ်ပုံစုစည်းမှုတွင် ဓာတ်ပုံများ ထည့်/ဖျက်ပါ။",
+    mediaNotConfigured: "ဝဘ်ဆိုက် ဓာတ်ပုံများ စီမံရန် Supabase ကို ချိတ်ဆက်ပါ။",
+    mediaHero: "Hero နောက်ခံ",
+    mediaHeroHint: "Public မူလစာမျက်နှာတွင် ခေါင်းစီးနောက်ကွယ်၌ မှုန်ဝါးစွာ ပြသသည်။",
+    mediaLogo: "လိုဂို",
+    mediaLogoHint: "ခေါင်းစီးဘားနှင့် browser tab အိုင်ကွန်တွင် ပြသသည်။",
+    mediaReplace: "ပြောင်းလဲရန်",
+    mediaGallery: "ဓာတ်ပုံစုစည်းမှု",
+    mediaGalleryHint: "Public မူလစာမျက်နှာတွင် ဤအစီအစဉ်အတိုင်း ပြသသော ဓာတ်ပုံများ။",
+    mediaGalleryEmpty: "ဓာတ်ပုံ မရှိသေးပါ — စတင်ရန် တစ်ခုထည့်ပါ။",
+    mediaAddPhoto: "ဓာတ်ပုံထည့်ရန်",
+    mediaRemovePhoto: "ဓာတ်ပုံဖျက်ရန်",
+    mediaUpdated: "ဓာတ်ပုံ အပ်ဒိတ်ပြီးပါပြီ",
+    mediaAdded: "ဓာတ်ပုံ ထည့်ပြီးပါပြီ",
+    mediaRemoved: "ဓာတ်ပုံ ဖျက်ပြီးပါပြီ",
+    mediaUploadFailed: "တင်ခြင်း မအောင်မြင်ပါ",
+    mediaRemoveFailed: "ဓာတ်ပုံ ဖျက်၍မရပါ",
+  },
+
   auth: {
     signInTitle: "{{name}} သို့ ဝင်ရောက်ပါ",
     createAccount: "အကောင့်အသစ်ဖွင့်ရန်",
