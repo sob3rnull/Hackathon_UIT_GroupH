@@ -97,6 +97,9 @@ export function VoiceInput({
   const t = useT();
   const { locale } = useLocale();
   const [path, setPath] = useState<CapturePath>("checking");
+  // Whether this browser implements the Web Speech API. Burmese is routed to it
+  // (see start()) because it transcribes Myanmar far better than server Whisper.
+  const [browserAvailable, setBrowserAvailable] = useState(false);
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   // No default on purpose: the crew must pick Burmese or English before they can
@@ -114,6 +117,8 @@ export function VoiceInput({
     // Decide the capture path once: server transcription if the API has a
     // key, else browser speech if this browser implements it, else typing.
     let cancelled = false;
+    const hasBrowser = getRecognitionCtor() !== null;
+    setBrowserAvailable(hasBrowser);
     void (async () => {
       let server = false;
       try {
@@ -124,7 +129,9 @@ export function VoiceInput({
         // API unreachable — same as no key.
       }
       if (cancelled) return;
-      setPath(server ? "server" : getRecognitionCtor() ? "browser" : "none");
+      // "server" means a server key exists (English uses it); Burmese still
+      // prefers the browser engine when this browser has one — see start().
+      setPath(server ? "server" : hasBrowser ? "browser" : "none");
     })();
     return () => {
       cancelled = true;
@@ -269,9 +276,23 @@ export function VoiceInput({
     onListeningChange?.(true);
   }
 
+  /**
+   * Which engine handles a given language. Burmese → the browser's Web Speech
+   * API (my-MM), which transcribes Myanmar seamlessly, whenever this browser has
+   * one; otherwise it falls back to server Whisper. English → server Whisper
+   * (Groq) when a key is configured, else the browser. Either way the transcript
+   * flows on to Claude triage exactly as before.
+   */
+  const engineFor = (lang: SpeechLanguage): "server" | "browser" =>
+    lang === "my-MM" && browserAvailable
+      ? "browser"
+      : path === "server"
+        ? "server"
+        : "browser";
+
   const start = () => {
     if (!language) return; // must choose Burmese or English first
-    if (path === "server") void startRecording();
+    if (engineFor(language) === "server") void startRecording();
     else startBrowserSpeech();
   };
 
@@ -282,6 +303,7 @@ export function VoiceInput({
   }
 
   const busy = disabled || transcribing;
+  const activeEngine = language ? engineFor(language) : null;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -348,11 +370,11 @@ export function VoiceInput({
       ) : null}
       {listening ? (
         <p className="text-xs text-muted">
-          {path === "server" ? t("voice.listeningServer") : t("voice.listeningBrowser")}
+          {activeEngine === "server" ? t("voice.listeningServer") : t("voice.listeningBrowser")}
         </p>
       ) : null}
       <p className="text-xs text-muted">
-        {path === "server" ? t("voice.hintServer") : t("voice.hintBrowser")}
+        {activeEngine === "browser" ? t("voice.hintBrowser") : t("voice.hintServer")}
       </p>
     </div>
   );
