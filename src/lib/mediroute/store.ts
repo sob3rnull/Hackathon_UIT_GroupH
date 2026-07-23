@@ -196,9 +196,28 @@ function ambulanceMemory(): Ambulance[] {
   return ga.__ambulances;
 }
 
+/**
+ * Real IoT units PATCH their fix on a timer (see fleet-panel.tsx), so a live
+ * fleet's gps_fix_at never goes stale on its own. The in-memory demo store
+ * has no hardware behind it, so without this it seeds gps_fix_at once at
+ * server start and looks increasingly "offline" the longer the dev server
+ * runs. Simulate the heartbeat for vehicles that would actually be
+ * reporting — certified, with a device, not offline — leaving the
+ * uncertified and offline seeds genuinely stale so those demo states still work.
+ */
+function simulateHeartbeats(rows: Ambulance[]): Ambulance[] {
+  const now = new Date().toISOString();
+  for (const row of rows) {
+    if (row.certified && row.device_id && row.status !== "offline") {
+      row.gps_fix_at = now;
+    }
+  }
+  return rows;
+}
+
 export async function listAmbulances(): Promise<Ambulance[]> {
   const db = await createDataClient();
-  if (!db) return [...ambulanceMemory()];
+  if (!db) return [...simulateHeartbeats(ambulanceMemory())];
 
   const { data, error } = await db
     .from("ambulances")
