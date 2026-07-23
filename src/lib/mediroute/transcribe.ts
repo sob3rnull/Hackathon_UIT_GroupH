@@ -35,9 +35,12 @@ const endpoints: Record<TranscriptionProvider, { url: string; model: string; key
   },
 };
 
+/** The only two languages the ambulance-page voice switch — and Groq — support. */
+export type TranscribeLanguage = "my" | "en";
+
 export async function transcribeAudio(
   file: File,
-  language?: "my" | "en",
+  language: TranscribeLanguage,
 ): Promise<string> {
   if (!transcriptionProvider) {
     throw new Error("No transcription key configured");
@@ -48,7 +51,9 @@ export async function transcribeAudio(
   form.append("file", file, file.name || "note.webm");
   form.append("model", provider.model);
   form.append("response_format", "json");
-  if (language) form.append("language", language);
+  // Always pin the language (Burmese or English). Whisper forces its output to
+  // this language instead of auto-detecting, so Groq can't return a third one.
+  form.append("language", language);
 
   const response = await fetch(provider.url, {
     method: "POST",

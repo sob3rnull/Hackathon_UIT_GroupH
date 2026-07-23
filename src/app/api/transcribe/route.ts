@@ -37,9 +37,12 @@ export async function POST(request: Request) {
     );
   }
 
+  // Groq is constrained to the two languages the ambulance-page switch offers:
+  // Burmese or English. Never auto-detect — an unset/unknown value defaults to
+  // Burmese (the switch's own default) rather than letting Whisper pick a third
+  // language and hand back a script no one on the crew can read.
   const languageRaw = form.get("language");
-  const language =
-    languageRaw === "my" || languageRaw === "en" ? languageRaw : undefined;
+  const language: "my" | "en" = languageRaw === "en" ? "en" : "my";
 
   try {
     const text = await transcribeAudio(file, language);
