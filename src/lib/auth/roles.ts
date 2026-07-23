@@ -44,6 +44,8 @@ export function isOpenPath(path: string): boolean {
     // The public directory reads live hospital capacity. GET-only list route;
     // capacity WRITES live on /api/hospitals/[id], which this does not match.
     path === "/api/hospitals" ||
+    // Fleet list — the registration/setup vehicle picker reads it pre-auth.
+    path === "/api/ambulances" ||
     path.startsWith("/api/donations")
   );
 }

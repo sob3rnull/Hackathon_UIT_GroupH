@@ -17,6 +17,7 @@ const ROLE_LABEL: Record<Role, string> = {
 };
 
 type HospitalOption = { id: string; short_name: string };
+type VehicleOption = { id: string; callsign: string };
 
 /**
  * Self-service sign-up.
@@ -38,8 +39,10 @@ export default function RegisterPage() {
   const [organization, setOrganization] = React.useState("");
   const [role, setRole] = React.useState<Role>("dispatcher");
   const [hospitalId, setHospitalId] = React.useState("");
+  const [ambulanceId, setAmbulanceId] = React.useState("");
 
   const [hospitals, setHospitals] = React.useState<HospitalOption[]>([]);
+  const [vehicles, setVehicles] = React.useState<VehicleOption[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [emailSent, setEmailSent] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -53,6 +56,12 @@ export default function RegisterPage() {
         if (!cancelled && res.ok) setHospitals(res.data);
       })
       .catch(() => {});
+    fetch("/api/ambulances")
+      .then((r) => r.json())
+      .then((res) => {
+        if (!cancelled && res.ok) setVehicles(res.data);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -64,6 +73,10 @@ export default function RegisterPage() {
 
     if (role === "hospital" && !hospitalId) {
       setError("Hospital staff must choose their hospital.");
+      return;
+    }
+    if (role === "ambulance" && !ambulanceId) {
+      setError("Ambulance crew must choose their vehicle.");
       return;
     }
 
@@ -101,6 +114,7 @@ export default function RegisterPage() {
       phone,
       organization,
       hospital_id: role === "hospital" ? hospitalId : null,
+      ambulance_id: role === "ambulance" ? ambulanceId : null,
     });
     setBusy(false);
 
@@ -198,10 +212,21 @@ export default function RegisterPage() {
                 ) : null}
 
                 {role === "ambulance" ? (
-                  <p className="text-xs text-muted">
-                    An administrator assigns your vehicle when they verify your
-                    account.
-                  </p>
+                  <Field label="Your vehicle" htmlFor="vehicle">
+                    <Select
+                      id="vehicle"
+                      required
+                      value={ambulanceId}
+                      onChange={(e) => setAmbulanceId(e.target.value)}
+                    >
+                      <option value="">Select a vehicle…</option>
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.callsign}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
                 ) : null}
 
                 <Field label="Phone" htmlFor="phone">

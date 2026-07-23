@@ -14,7 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, Select, Textarea } from "@/components/ui/field";
+import { Field, Textarea } from "@/components/ui/field";
 import { EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -29,6 +29,7 @@ import { AmbulanceRouteMap } from "@/components/mediroute/ambulance-route-map";
 import { TriageSummary, type TriageSource } from "@/components/mediroute/triage-summary";
 import { VoiceInput } from "@/components/mediroute/voice-input";
 import { confirmMission, getHospitalPlan, runTriage } from "@/lib/mediroute/backend";
+import { createClient } from "@/lib/supabase/client";
 import { useFleet } from "@/lib/mediroute/use-fleet";
 import { useHospitals } from "@/lib/mediroute/use-hospitals";
 import { useDispatches } from "@/lib/mediroute/use-dispatches";
@@ -41,8 +42,6 @@ import {
   type Triage,
 } from "@/lib/mediroute/types";
 import { cn } from "@/lib/utils";
-
-const VEHICLE_KEY = "mediroute:vehicle";
 
 /**
  * The in-cab screen. Read at arm's length on a tablet, often one-handed, so
@@ -96,33 +95,66 @@ export function AmbulanceDashboard() {
       .catch(() => setAiAvailable(false));
   }, []);
 
-  // Restore the last vehicle after mount — localStorage isn't readable during
-  // render without breaking hydration.
+  // The crew's vehicle is bound to their account (profiles.ambulance_id) and
+  // can't be switched from here — read it once from the profile.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setVehicleId(localStorage.getItem(VEHICLE_KEY));
+    const supabase = createClient();
+    if (!supabase) return;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("ambulance_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (data?.ambulance_id) setVehicleId(data.ambulance_id);
+    })();
   }, []);
 
   const vehicle = useMemo(
-    () => ambulances.find((a) => a.id === vehicleId) ?? ambulances[0] ?? null,
+    () => ambulances.find((a) => a.id === vehicleId) ?? null,
     [ambulances, vehicleId],
   );
 
   /**
-   * The newest ACTIVE run assigned to this vehicle. Completed or cancelled runs
-   * are history, not the current mission, so they're filtered out — the crew
-   * sees "Standing by" once a run is done, not a finished mission lingering.
+   * The newest run for this vehicle that isn't cancelled. A completed ('arrived')
+   * run stays visible briefly with a "Completed" tag, then hides (see hideDone).
    */
   const mission = useMemo(
     () =>
       vehicle
         ? (dispatches.find(
-            (d) =>
-              d.ambulance_id === vehicle.id &&
-              d.status !== "arrived" &&
-              d.status !== "cancelled",
+            (d) => d.ambulance_id === vehicle.id && d.status !== "cancelled",
           ) ?? null)
         : null,
+    [dispatches, vehicle],
+  );
+
+  const missionCompleted = mission?.status === "arrived";
+
+  // Keep a finished run on screen for 10s (with the Completed tag), then hide it.
+  const [hideDone, setHideDone] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHideDone(false);
+    if (!missionCompleted) return;
+    const t = setTimeout(() => setHideDone(true), 10_000);
+    return () => clearTimeout(t);
+  }, [mission?.id, missionCompleted]);
+
+  const activeMission = mission && !(missionCompleted && hideDone) ? mission : null;
+
+  // Completed runs for this vehicle — the crew's own history.
+  const runHistory = useMemo(
+    () =>
+      vehicle
+        ? dispatches.filter(
+            (d) => d.ambulance_id === vehicle.id && d.status === "arrived",
+          )
+        : [],
     [dispatches, vehicle],
   );
 
@@ -193,11 +225,6 @@ export function AmbulanceDashboard() {
 
     return null;
   }, [vehicle, mission, destination]);
-
-  function chooseVehicle(id: string) {
-    setVehicleId(id);
-    localStorage.setItem(VEHICLE_KEY, id);
-  }
 
   async function advance(status: AmbulanceStatus, label: string) {
     if (!vehicle) return;
@@ -308,8 +335,8 @@ export function AmbulanceDashboard() {
     return (
       <EmptyState
         icon={<AmbulanceIcon className="size-6" />}
-        title="No vehicles in the fleet"
-        body="Add an ambulance on the fleet ops screen to get started."
+        title="No vehicle assigned to your account"
+        body="Your crew account isn't bound to a vehicle yet. Complete setup on your profile, then sign in again."
       />
     );
   }
@@ -342,19 +369,10 @@ export function AmbulanceDashboard() {
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-muted">
-            <span className="whitespace-nowrap">This vehicle</span>
-            <Select
-              value={vehicle.id}
-              onChange={(event) => chooseVehicle(event.target.value)}
-              aria-label="Select your vehicle"
-              className="h-11 min-w-40 text-base"
-            >
-              {ambulances.map((a) => (
-                <option key={a.id} value={a.id}>{a.callsign}</option>
-              ))}
-            </Select>
-          </label>
+          <div className="text-right text-sm text-muted">
+            <span className="block text-xs uppercase tracking-wide">Your vehicle</span>
+            <span className="text-base font-semibold text-foreground">{vehicle.callsign}</span>
+          </div>
         </CardBody>
       </Card>
 
@@ -374,16 +392,23 @@ export function AmbulanceDashboard() {
       {/* ── The run ──────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Current mission</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg">Current mission</CardTitle>
+            {activeMission && missionCompleted ? (
+              <Badge tone="success">Completed</Badge>
+            ) : null}
+          </div>
           <CardDescription>
-            {mission
-              ? "Assigned by dispatch. Run triage yourself, then pick where you're taking the patient."
+            {activeMission
+              ? missionCompleted
+                ? "This run is complete — it'll clear shortly."
+                : "Assigned by dispatch. Run triage yourself, then pick where you're taking the patient."
               : "Nothing assigned right now."}
           </CardDescription>
         </CardHeader>
 
         <CardBody>
-          {!mission ? (
+          {!mission || (missionCompleted && hideDone) ? (
             <EmptyState
               icon={<AmbulanceIcon className="size-6" />}
               title="Standing by"
@@ -622,6 +647,33 @@ export function AmbulanceDashboard() {
           })}
         </CardBody>
       </Card>
+
+      {runHistory.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Run history</CardTitle>
+            <CardDescription>Completed runs for {vehicle.callsign}.</CardDescription>
+          </CardHeader>
+          <CardBody className="flex flex-col gap-2">
+            {runHistory.map((d) => (
+              <div
+                key={d.id}
+                className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0 last:pb-0"
+              >
+                <div>
+                  <p className="text-sm font-medium">{d.patient_note || d.condition}</p>
+                  <p className="text-xs text-muted">
+                    {d.condition} · {d.severity}
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs text-muted">
+                  {d.arrived_at ? new Date(d.arrived_at).toLocaleDateString() : "—"}
+                </span>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      ) : null}
     </div>
   );
 }
