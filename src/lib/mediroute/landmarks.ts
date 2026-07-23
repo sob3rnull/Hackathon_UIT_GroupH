@@ -115,6 +115,17 @@ export const LANDMARKS: Landmark[] = [
     lng: 96.135,
   },
   {
+    name: "University of Information Technology",
+    aliases: [
+      "uit",
+      "university of information technology",
+      "ယူအိုင်တီ",
+      "သတင်းအချက်အလက်နည်းပညာတက္ကသိုလ်",
+    ],
+    lat: 16.8561,
+    lng: 96.1353,
+  },
+  {
     name: "Sanchaung",
     aliases: ["sanchaung", "san chaung", "စမ်းချောင်း"],
     lat: 16.815,
