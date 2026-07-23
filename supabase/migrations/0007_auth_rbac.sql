@@ -32,6 +32,13 @@ create table if not exists public.profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   full_name    text not null default '',
   role         text not null check (role in ('dispatcher','ambulance','hospital')),
+  phone        text not null default '',
+  organization text not null default '',
+  -- The gate. A self-registered profile starts unverified and carries NO role
+  -- claim in the JWT until an admin flips this in the Supabase dashboard. The
+  -- column is NOT granted to the authenticated role (see grants below), so a
+  -- registrant cannot set or change it — only the service role (dashboard) can.
+  is_verified  boolean not null default false,
   is_active    boolean not null default true,
   org_id       uuid references public.organizations(id) on delete set null,
   hospital_id  uuid references public.hospitals(id)     on delete set null,
@@ -84,23 +91,33 @@ language sql stable as $$
   select nullif(auth.jwt() -> 'app_metadata' ->> 'ambulance_id', '')::uuid
 $$;
 
--- ─── Sync profiles -> app_metadata so those claims exist ────────────────
+-- ─── Sync profiles -> app_metadata, GATED ON VERIFICATION ───────────────
+-- Verified: the role + scope ride into the JWT. Unverified (or de-verified):
+-- the claims are stripped, so revoking access is just flipping is_verified
+-- back to false. This is why self-registration is safe — the role a user
+-- picks at signup does nothing until an admin verifies the row.
 create or replace function public.sync_profile_claims() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  update auth.users set raw_app_meta_data =
-    coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(
-      'role',         new.role,
-      'hospital_id',  new.hospital_id,
-      'ambulance_id', new.ambulance_id
-    )
-  where id = new.id;
+  if new.is_verified then
+    update auth.users set raw_app_meta_data =
+      coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(
+        'role',         new.role,
+        'hospital_id',  new.hospital_id,
+        'ambulance_id', new.ambulance_id
+      )
+    where id = new.id;
+  else
+    update auth.users set raw_app_meta_data =
+      coalesce(raw_app_meta_data, '{}'::jsonb) - 'role' - 'hospital_id' - 'ambulance_id'
+    where id = new.id;
+  end if;
   return new;
 end $$;
 
 drop trigger if exists profiles_sync_claims on public.profiles;
 create trigger profiles_sync_claims
-  after insert or update of role, hospital_id, ambulance_id on public.profiles
+  after insert or update of role, hospital_id, ambulance_id, is_verified on public.profiles
   for each row execute function public.sync_profile_claims();
 
 -- ═══════════════════════════════════════════════════════════════════════
@@ -115,9 +132,34 @@ drop policy if exists "anon full access" on public.ambulances;
 alter table public.profiles      enable row level security;
 alter table public.organizations enable row level security;
 
--- profiles: you read yourself. No other policy = nobody else can, as intended.
+-- profiles: you read, create and edit YOUR OWN row — nobody else's.
 create policy "read own profile" on public.profiles
   for select to authenticated using ((select auth.uid()) = id);
+
+-- Self-registration: a signed-in user may insert exactly one row, keyed to
+-- their own auth id. They cannot invent a row for someone else.
+create policy "create own profile" on public.profiles
+  for insert to authenticated with check ((select auth.uid()) = id);
+
+-- Self-service edits. The row-check keeps it to your own row; the COLUMN grant
+-- below is what keeps you from editing role / verification / scope.
+create policy "update own profile" on public.profiles
+  for update to authenticated
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
+
+-- Column-level guard rails. The row policies above say WHICH row; these say
+-- WHICH columns. Default Supabase grants are broad, so revoke and re-grant:
+--   * insert may set identity + requested role/scope + contact fields, but NOT
+--     is_verified or is_active (they keep their safe defaults: false / true).
+--   * update may only touch the contact fields. role, scope and is_verified
+--     are therefore settable by the SERVICE ROLE only — i.e. you, in the
+--     Supabase dashboard. That's the whole "admin verifies in Supabase" model.
+revoke insert, update on public.profiles from anon, authenticated;
+grant insert (id, full_name, role, phone, organization, hospital_id, ambulance_id)
+  on public.profiles to authenticated;
+grant update (full_name, phone, organization)
+  on public.profiles to authenticated;
 
 create policy "orgs readable" on public.organizations
   for select to authenticated using (true);

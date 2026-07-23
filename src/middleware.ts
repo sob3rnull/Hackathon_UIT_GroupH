@@ -37,10 +37,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Role rides in the JWT via profiles -> app_metadata (see 0007), so reading
-  // it costs nothing. Absent means no profiles row was created for this user.
+  // it costs nothing. Absent means the profile is unverified (or not created
+  // yet) — such users may sit on /pending or finish/view their /profile, but
+  // nothing else.
   const role = user.app_metadata?.role;
   if (!isRole(role)) {
-    return path === "/pending"
+    return path === "/pending" || path === "/profile"
       ? response
       : NextResponse.redirect(new URL("/pending", request.url));
   }

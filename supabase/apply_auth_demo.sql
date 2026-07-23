@@ -43,6 +43,9 @@ create table if not exists public.profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   full_name    text not null default '',
   role         text not null check (role in ('dispatcher','ambulance','hospital')),
+  phone        text not null default '',
+  organization text not null default '',
+  is_verified  boolean not null default false,
   is_active    boolean not null default true,
   org_id       uuid references public.organizations(id) on delete set null,
   hospital_id  uuid references public.hospitals(id)     on delete set null,
@@ -54,6 +57,12 @@ create table if not exists public.profiles (
  or (role = 'hospital'   and ambulance_id is null and hospital_id is not null)
   )
 );
+
+-- Idempotent: add the newer columns if this runs against a profiles table
+-- created by an earlier version of this script.
+alter table public.profiles add column if not exists phone        text not null default '';
+alter table public.profiles add column if not exists organization text not null default '';
+alter table public.profiles add column if not exists is_verified  boolean not null default false;
 
 create index if not exists profiles_hospital_idx
   on public.profiles (hospital_id) where hospital_id is not null;
@@ -85,22 +94,29 @@ language sql stable as $$
   select nullif(auth.jwt() -> 'app_metadata' ->> 'ambulance_id', '')::uuid
 $$;
 
+-- Verification-gated: role/scope reach the JWT only when is_verified is true.
 create or replace function public.sync_profile_claims() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  update auth.users set raw_app_meta_data =
-    coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(
-      'role',         new.role,
-      'hospital_id',  new.hospital_id,
-      'ambulance_id', new.ambulance_id
-    )
-  where id = new.id;
+  if new.is_verified then
+    update auth.users set raw_app_meta_data =
+      coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(
+        'role',         new.role,
+        'hospital_id',  new.hospital_id,
+        'ambulance_id', new.ambulance_id
+      )
+    where id = new.id;
+  else
+    update auth.users set raw_app_meta_data =
+      coalesce(raw_app_meta_data, '{}'::jsonb) - 'role' - 'hospital_id' - 'ambulance_id'
+    where id = new.id;
+  end if;
   return new;
 end $$;
 
 drop trigger if exists profiles_sync_claims on public.profiles;
 create trigger profiles_sync_claims
-  after insert or update of role, hospital_id, ambulance_id on public.profiles
+  after insert or update of role, hospital_id, ambulance_id, is_verified on public.profiles
   for each row execute function public.sync_profile_claims();
 
 -- ── RLS ─────────────────────────────────────────────────────────────────────
@@ -114,6 +130,24 @@ alter table public.organizations enable row level security;
 drop policy if exists "read own profile" on public.profiles;
 create policy "read own profile" on public.profiles
   for select to authenticated using ((select auth.uid()) = id);
+
+-- Self-registration: create + edit your own row only. Column grants below stop
+-- role / verification / scope being set by anyone but the service role.
+drop policy if exists "create own profile" on public.profiles;
+create policy "create own profile" on public.profiles
+  for insert to authenticated with check ((select auth.uid()) = id);
+
+drop policy if exists "update own profile" on public.profiles;
+create policy "update own profile" on public.profiles
+  for update to authenticated
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
+
+revoke insert, update on public.profiles from anon, authenticated;
+grant insert (id, full_name, role, phone, organization, hospital_id, ambulance_id)
+  on public.profiles to authenticated;
+grant update (full_name, phone, organization)
+  on public.profiles to authenticated;
 
 drop policy if exists "orgs readable" on public.organizations;
 create policy "orgs readable" on public.organizations
@@ -303,20 +337,28 @@ end $$;
 -- crew → YGN-02 and hospital → Thingangyun Sanpya on purpose: YGN-02 is the
 -- vehicle transporting the stroke patient TO Sanpya, so the crew and hospital
 -- logins share one live mission for the demo.
-insert into public.profiles (id, full_name, role, hospital_id, ambulance_id)
-select u.id, p.full_name, p.role, p.hospital_id, p.ambulance_id
+-- Seeded profiles are is_verified = true so the demo logins work at once. A
+-- real self-registration starts false and waits for you to flip it.
+insert into public.profiles
+  (id, full_name, role, phone, organization, is_verified, hospital_id, ambulance_id)
+select u.id, p.full_name, p.role, p.phone, p.organization, true, p.hospital_id, p.ambulance_id
 from (values
-  ('dispatcher@wheeyaw.demo', 'Dispatch One', 'dispatcher',
-     null::uuid, null::uuid),
-  ('crew@wheeyaw.demo', 'Crew YGN-02', 'ambulance',
-     null::uuid, (select id from public.ambulances where callsign = 'YGN-02')),
-  ('hospital@wheeyaw.demo', 'Sanpya Staff', 'hospital',
+  ('dispatcher@wheeyaw.demo', 'Dispatch One', 'dispatcher', '09770000001',
+     'Yangon Emergency Control', null::uuid, null::uuid),
+  ('crew@wheeyaw.demo', 'Crew YGN-02', 'ambulance', '09770000002',
+     'Yangon City EMS', null::uuid,
+     (select id from public.ambulances where callsign = 'YGN-02')),
+  ('hospital@wheeyaw.demo', 'Sanpya Staff', 'hospital', '09770000003',
+     'Yangon Public Hospitals',
      (select id from public.hospitals where short_name = 'Thingangyun Sanpya'), null::uuid)
-) as p(email, full_name, role, hospital_id, ambulance_id)
+) as p(email, full_name, role, phone, organization, hospital_id, ambulance_id)
 join auth.users u on u.email = p.email
 on conflict (id) do update
   set role         = excluded.role,
       full_name    = excluded.full_name,
+      phone        = excluded.phone,
+      organization = excluded.organization,
+      is_verified  = true,
       hospital_id  = excluded.hospital_id,
       ambulance_id = excluded.ambulance_id;
 
