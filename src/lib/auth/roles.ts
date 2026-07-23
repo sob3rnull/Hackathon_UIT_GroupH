@@ -50,7 +50,10 @@ export function isOpenPath(path: string): boolean {
     path === "/api/hospitals" ||
     // Fleet list — the registration/setup vehicle picker reads it pre-auth.
     path === "/api/ambulances" ||
-    path.startsWith("/api/donations")
+    path.startsWith("/api/donations") ||
+    // Vercel Cron calls this with no session — it must reach the route to be
+    // rejected or accepted by its own CRON_SECRET check, not bounced to /login.
+    path === "/api/cron/gps-heartbeat"
   );
 }
 
