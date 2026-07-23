@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Database, HardDrive, User } from "lucide-react";
 import { project } from "@/config/project";
 import { useT } from "@/lib/i18n/context";
+import { mediaUrl } from "@/lib/media";
 import { Badge } from "@/components/ui/badge";
-import { BrandLogo } from "@/components/brand-logo";
 import { SiteNav } from "@/components/site-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -29,7 +30,9 @@ export function SiteHeaderClient({
     <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2 font-semibold">
-          <BrandLogo className="size-7 shrink-0" />
+          <span className="relative size-7 shrink-0 overflow-hidden rounded-md bg-white">
+            <Image src={mediaUrl("logo.jpg")} alt="" fill className="object-contain" />
+          </span>
           <span className="tracking-tight">{project.name}</span>
         </Link>
 
