@@ -22,12 +22,12 @@ piece independently — see [`.env.example`](.env.example).
 | Route | Who | What |
 |---|---|---|
 | `/` | Public | Hospital directory — live capacity on every card, a (demo) donation flow. First thing anyone sees, including judges. |
-| `/dispatcher` | 119 call taker | Log an **optional** note + click the map for the incident, then assign the nearest dispatchable ambulance. That's the whole job. |
+| `/dispatcher` | 119 call taker | Log an **optional** note + click the map for the incident, then assign the nearest dispatchable ambulance. On "Find ambulances," Claude reads the note for a Yangon landmark and drops the incident pin there (`/api/locate`); the pin stays draggable and map-click still works. That's the whole job. |
 | `/ambulance` | Crew on board | Dictate (Burmese/English) or type the patient description, run triage themselves, pick the hospital, advance status through the run. |
 | `/hospital` | *(stands in for the HIS feed)* | Live bed / ICU / roster / ER capacity |
 | `/history` | Dispatcher | Every past incident, searchable, with what was recommended vs. what was chosen |
 | `/fleet` | Dispatcher | Vehicle status, GPS freshness, certification |
-| `/login` · `/register` | Anyone | Email/password sign-in and self-service sign-up. A new account has no role and waits on `/pending` until an admin assigns one. |
+| `/login` · `/register` | Anyone | Email/password sign-in and self-service sign-up. `/login` also has one-click **Demo accounts** buttons (dispatcher / ambulance crew / hospital) that submit the pre-verified demo logins. A new account has no role and waits on `/pending` until an admin assigns one. |
 
 Changes on `/hospital` or `/fleet` re-rank `/dispatcher` and `/ambulance` instantly
 over Supabase Realtime — no refresh, no socket server. **Run at least one panel on a
@@ -35,14 +35,17 @@ second machine during the demo.**
 
 Once Supabase auth is enabled, the operational screens are gated by role — a crew
 login can't open `/dispatcher`, a hospital login can't open `/fleet` — while `/` and
-the donation flow stay public. See **Authentication & roles** below.
+the donation flow stay public. See **Authentication & roles** below. The header nav is
+role-scoped to match: signed-out visitors see no route links at all, and a signed-in
+user sees only the routes their role may open (an `admin` sees all).
 
 ---
 
 ## Authentication & roles
 
-Sign-in is **email/password via Supabase Auth**, with three roles — `dispatcher`,
-`ambulance`, `hospital` — enforced at two layers:
+Sign-in is **email/password via Supabase Auth**, with three self-selectable roles —
+`dispatcher`, `ambulance`, `hospital` — plus an `admin` role (granted in Supabase, never
+chosen at signup) that opens every dashboard. Roles are enforced at two layers:
 
 - **Middleware** (`src/middleware.ts`) routes each session to its own dashboard and
   bounces cross-role access. UX only, not a security boundary.
@@ -62,11 +65,13 @@ sit on `/pending` until an admin sets `is_verified = true` in the Supabase table
 editor. Roles ride in the token, so a freshly-verified user must **sign out and back
 in** for it to take effect.
 
-**Current state:** `0007` (auth + RLS) and `0008` (demo dispatches) are **applied to
-the live database.** No admin account exists — verification is done directly in
-Supabase. `apply_auth_demo.sql` remains the one-shot for standing a fresh project up
-(it also seeds three pre-verified demo logins). With Supabase env vars **blank**, the
-app stays in memory mode and skips auth entirely, so the offline demo is unaffected.
+**Current state:** migrations `0007` (auth + RLS) through `0011` (media bucket) are
+**applied to the live database**, and the three pre-verified demo logins
+(`dispatcher@` / `crew@` / `hospital@wheeyaw.demo`) exist and work — the `/login`
+**Demo accounts** buttons submit them. `apply_auth_demo.sql` remains the one-shot for
+standing a fresh project up (create the three auth users first, then run it). With
+Supabase env vars **blank**, the app stays in memory mode and skips auth entirely, so
+the offline demo is unaffected.
 
 > **Dummy emails:** turn **off** "Confirm email" in Authentication → Providers →
 > Email. Then `foo@bar.demo` and the like work immediately — signup returns a live
@@ -108,6 +113,19 @@ on the device that's actually with them, instead of secondhand over the radio.
 
 Two legs, reported separately and summed. A vehicle 1 minute away pairing with a
 hospital 15 minutes out is a different clinical picture from the reverse.
+
+### Reading the dispatcher's note for a location
+
+The dispatcher's note is optional, but when it names a place the incident pin
+shouldn't have to be placed by hand. On "Find ambulances," the note is sent to
+`POST /api/locate`: Claude returns a **landmark name only** (never coordinates), and
+that name is resolved to lat/lng against a hardcoded gazetteer of ~26 real Yangon
+landmarks in [`landmarks.ts`](src/lib/mediroute/landmarks.ts) — Myanmar Plaza, Sule
+Pagoda, Hledan Junction, Shwedagon, the airport, the townships — matched
+case-insensitively on name **and** Burmese aliases. The pin drops there and stays
+draggable; map-click still works. The model can never emit a coordinate, so a
+hallucinated location can't reach the map — no gazetteer match just means "couldn't
+infer, click the map," the same as before. Runs on **Claude Haiku** (see below).
 
 ---
 
@@ -156,17 +174,22 @@ engine both return Thingangyun Sanpya at `0.619` and North Okkalapa at `0.269`,
 with identical exclusions. Ranking itself hasn't changed since — only who's
 allowed to see triage before a hospital gets ranked.
 
-### Before the AI triage route works
+### The AI triage route
 
-The Claude node is currently **disabled**, because its credential is a
-placeholder — the workflow could not be published with it enabled, and the API
-key is yours to enter, not something to hand round. Until then the triage route
-answers with the keyword fallback and says so — on the **Ambulance** page now,
-since that's where triage runs.
+**Local backend** (`NEXT_PUBLIC_MEDIROUTE_API` blank): `/api/triage` runs Claude
+directly. `ANTHROPIC_API_KEY` is configured, so triage extracts with **Claude Haiku
+4.5** and the badge on the **Ambulance** page reads "Extracted by Claude." Miss the key
+or the call fails and it degrades to the keyword matcher and says so — fallback output
+is never presented as AI.
 
-To turn it on: add an Anthropic credential in n8n, then enable
-**Extract Triage With Claude** and publish. A disabled node passes data through,
-which is why the route works either way.
+**n8n backend:** the workflow's **Extract Triage With Claude** node needs its own
+Anthropic credential added in n8n and the node enabled + published. A disabled node
+passes data through to the keyword fallback, which is why the route works either way.
+The two backends share the same triage contract, so the UI can't tell them apart.
+
+Both Claude calls in the local backend — triage and `/api/locate` — run on **Haiku
+4.5** with trimmed prompts and low `max_tokens`, chosen for cost: this is short
+structured extraction, not a task that needs a frontier model.
 
 ---
 
@@ -180,15 +203,24 @@ which one is active — see [`voice-input.tsx`](src/components/mediroute/voice-i
   in any browser and on networks where the built-in speech service is
   blocked. Set `OPENAI_API_KEY` (whisper-1) or `GROQ_API_KEY`
   (whisper-large-v3, free tier, strong Burmese) — OpenAI wins if both are set.
+  This build runs on **Groq**.
 - **Browser SpeechRecognition** (fallback) — no key needed, Chrome/Edge only,
   streams audio to the browser vendor's servers, fails with "Speech service
   unreachable" on Brave, VPNs and filtered venue wifi.
 
 Typing always stays visible below either path — it's the one that works fully
-offline. Language toggles between Burmese (`my-MM`) and English on the
+offline. Language toggles between **Burmese** (`my-MM`) and **English** on the
 **Ambulance** page's intake card, not the dispatcher's — the dispatcher's own
 note field has no voice input at all, on purpose: it's optional, and real
 intake happens where the patient is.
+
+The switch is the only language Whisper is allowed: `/api/transcribe` always pins the
+request to `my` or `en` (defaulting to Burmese) rather than letting Whisper
+auto-detect into a third language and hand back a script no one on the crew can read.
+And the two are **linked to Claude** — when a server transcription completes it runs
+triage automatically, so the crew speaks and the structured triage appears without a
+second click. (The browser-speech path doesn't auto-fire, since its interim results
+would trigger a triage on every partial word.)
 
 Seed Burmese medical-clause examples for the keyword fallback live in
 [`training/burmese-patient-situations.jsonl`](training/burmese-patient-situations.jsonl);
@@ -286,6 +318,31 @@ dispatching on a stale position is worse than not dispatching.
 
 ---
 
+## Site photos — Supabase Storage
+
+The hero background, header logo, and the donation page's impact gallery are served
+from a **public `media` bucket** in Supabase Storage, not from `public/`.
+[`media.ts`](src/lib/media.ts)'s `mediaUrl()` builds a Storage URL when Supabase is
+configured and falls back to the matching `public/` file when it isn't — so images can
+be swapped from the Supabase dashboard without a redeploy, which is the whole point.
+
+- **Migration `0011`** creates the bucket and its RLS: anyone (incl. anon) can *list
+  and download* `media`; only an `admin` can add/replace/remove. Listing goes through
+  `storage.objects` RLS even though downloads bypass it, so that public-read policy is
+  what lets the gallery enumerate itself on the public page.
+- **The gallery is live** ([`use-gallery.ts`](src/lib/mediroute/use-gallery.ts)): it
+  lists `media/gallery/` at runtime, so an admin's upload or delete via the in-app
+  media manager ([`admin/media-manager.tsx`](src/components/admin/media-manager.tsx),
+  reachable from `/profile` for admins) shows up on reload with no code change.
+- **These images are rendered `unoptimized`** (hero, logo, gallery), i.e. straight
+  from Storage rather than through Next's image optimizer. The optimizer caches by URL,
+  so a photo swapped at the same Storage path would otherwise keep serving the old
+  bytes — stale on the dev server and on Vercel until a redeploy — defeating the
+  swap-without-redeploy design. Trade-off: no automatic resizing/webp for these few
+  assets, which is the right call for dashboard-swappable photos.
+
+---
+
 ## How a recommendation is produced
 
 **1. Triage** (`src/lib/mediroute/triage.ts`, `keyword-triage.ts`) — runs on the
@@ -294,7 +351,7 @@ dispatching on a stale position is worse than not dispatching.
 Free-text patient note → `{ condition, severity, requiredSpecialty, needsICU,
 redFlags, confidence }`. Two paths, identical output shape:
 
-- **Claude** via structured outputs — schema-guaranteed, no JSON parsing.
+- **Claude Haiku 4.5** via structured outputs — schema-guaranteed, no JSON parsing.
 - **Bilingual Burmese/English keyword matcher** — used when `ANTHROPIC_API_KEY`
   is missing or the call fails.
 
@@ -356,11 +413,13 @@ src/
   lib/mediroute/
     engine.ts           ← selectAmbulance + recommend (pure, tested)
     engine.test.ts       ← unit tests incl. both seeded demo scenarios
-    triage.ts            ← Claude structured-output triage
+    triage.ts            ← Claude Haiku structured-output triage
     keyword-triage.ts     ← bilingual Burmese/English fallback matcher
     keyword-triage.test.ts
-    transcribe.ts         ← server-side Whisper (OpenAI or Groq)
+    landmarks.ts          ← Yangon gazetteer for /api/locate (name+aliases → lat/lng)
+    transcribe.ts         ← server-side Whisper (Groq/OpenAI), pinned to my|en
     describe.ts           ← hospital directory card blurb, with a fallback
+    use-gallery.ts        ← lists media/gallery/ live (admin-managed photo set)
     geo.ts                ← haversine + ETA
     polyline.ts           ← Google encoded-polyline decoder, for the route map
     maps-loader.ts         ← shared Google Maps <script> loader (one load, many maps)
@@ -382,21 +441,25 @@ src/
     hospital-choice-list.tsx, triage-summary.tsx, reasons.tsx
       ← shared between the ambulance page and (formerly) the dispatcher
     hospital-directory.tsx  ← public landing: capacity cards + donations
+    impact-gallery.tsx      ← donation-page photo gallery, live from Storage
     voice-input.tsx         ← Whisper + browser-speech, typing always available
     fleet-panel.tsx | hospital-panel.tsx | history-panel.tsx
     google-map.tsx | map.tsx ← dispatcher overview (Google + offline SVG fallback)
     status.tsx               ← one status vocabulary, shared everywhere
+  components/admin/
+    media-manager.tsx        ← admin-only: upload/remove site photos to the bucket
   app/api/
-    triage · transcribe · route · ambulances · ambulances/[id]
+    triage · locate · transcribe · route · ambulances · ambulances/[id]
     hospitals · hospitals/[id] · recommend · dispatch · dispatch/confirm
     donations · donations/otp · health
   app/                    ← auth pages: login · register · reset-password ·
                             update-password · pending · auth/callback · auth/signout
   middleware.ts           ← session refresh + role routing
-  lib/auth/roles.ts       ← Role type, route map, path guards
+  lib/auth/roles.ts       ← Role type (incl. admin), route map, path guards
+  lib/media.ts            ← mediaUrl(): Supabase Storage media bucket, public/ fallback
 supabase/
-  migrations/ ← schema + seed (0001–0008); donations 0004–0006,
-                auth + RBAC 0007, demo data 0008
+  migrations/ ← schema + seed (0001–0011); donations 0004–0006, auth + RBAC 0007,
+                demo data 0008, admin role 0009, media bucket + RLS 0011
   apply_auth_demo.sql ← one-shot: applies 0007+0008 and links demo profiles by email
 ```
 

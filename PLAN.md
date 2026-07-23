@@ -426,5 +426,6 @@ Decide this now, calmly, not at hour 19 in a panic. Cut in this order:
 - [ ] Team size, and who owns which track from §9?
 - [ ] Final weight values — start with §5's and tune during rehearsal.
 - [ ] Which 5–6 Yangon hospitals, and which one "should" win the demo scenario?
-- [ ] Opus or Haiku for triage — decide after you've felt the latency once.
+- [x] Opus or Haiku for triage — **Haiku 4.5** (also for `/api/locate`): short
+      structured extraction, chosen for cost and speed. See README.
 - [ ] Who is the second person driving the hospital panel during the demo?
