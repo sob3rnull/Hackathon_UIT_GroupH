@@ -14,6 +14,7 @@ const ROLE_LABEL: Record<Role, string> = {
   dispatcher: "Dispatcher (119 call taker)",
   ambulance: "Ambulance crew",
   hospital: "Hospital staff",
+  admin: "Admin",
 };
 
 type HospitalOption = { id: string; short_name: string };

@@ -1,10 +1,13 @@
-/** The three WheeYaw roles. Mirrors profiles.role in migration 0007. */
-export type Role = "dispatcher" | "ambulance" | "hospital";
+/** WheeYaw roles. Mirrors profiles.role. 'admin' opens every dashboard. */
+export type Role = "dispatcher" | "ambulance" | "hospital" | "admin";
 
+/** Roles selectable at signup. 'admin' is granted in Supabase, never chosen. */
 export const ROLES: Role[] = ["dispatcher", "ambulance", "hospital"];
 
+const VALID_ROLES: Role[] = ["dispatcher", "ambulance", "hospital", "admin"];
+
 export function isRole(value: unknown): value is Role {
-  return typeof value === "string" && ROLES.includes(value as Role);
+  return typeof value === "string" && VALID_ROLES.includes(value as Role);
 }
 
 /** Where each role lands after sign-in, and where it bounces back to. */
@@ -12,6 +15,7 @@ export const HOME: Record<Role, string> = {
   dispatcher: "/dispatcher",
   ambulance: "/ambulance",
   hospital: "/hospital",
+  admin: "/dispatcher",
 };
 
 /**
@@ -88,6 +92,7 @@ export function safeNext(next: string | null | undefined): string | null {
 }
 
 export function allowedOn(path: string, role: Role): boolean {
+  if (role === "admin") return true; // admin opens every dashboard
   const rule = GUARD.find(([prefix]) => path.startsWith(prefix));
   return !rule || rule[1].includes(role);
 }

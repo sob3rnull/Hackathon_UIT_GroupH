@@ -13,6 +13,7 @@ const ROLE_LABEL: Record<Role, string> = {
   dispatcher: "Dispatcher",
   ambulance: "Ambulance crew",
   hospital: "Hospital staff",
+  admin: "Admin",
 };
 
 type Profile = {
