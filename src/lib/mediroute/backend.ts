@@ -4,25 +4,13 @@ import type { AmbulanceSelection, ApiResult, LatLng, Recommendation, Triage } fr
 import type { DispatchRecord } from "./use-dispatches";
 
 /**
- * The one place the frontend decides where the backend lives.
- *
- * Set NEXT_PUBLIC_MEDIROUTE_API to the n8n webhook base (e.g.
- * https://<instance>.app.n8n.cloud/webhook) and every call below goes to the
- * n8n workflow. Leave it blank and the same calls hit the local Next.js route
- * handlers instead.
- *
- * Both paths run the SAME ranking logic — n8n/ranking-core.js is embedded in
- * the workflow's Code node, and src/lib/mediroute/n8n-parity.test.ts asserts
- * it matches the TypeScript engine case for case. Switching backends must not
- * change a single recommendation.
- *
- * Keeping the local path is deliberate demo insurance: n8n Cloud is a network
- * dependency, and if the venue drops it you flip one env var instead of
- * losing the backend entirely.
+ * Every call below hits the native Next.js API routes (/api/*). The n8n backend
+ * has been retired — NEXT_PUBLIC_MEDIROUTE_API is no longer read, so a stale
+ * value in a deployment can't route traffic back to a dead webhook. (The n8n
+ * /mediroute/plan webhook was returning an empty 200, which surfaced on the
+ * client as "JSON.parse: unexpected end of data".)
  */
-const N8N_BASE = (process.env.NEXT_PUBLIC_MEDIROUTE_API ?? "").replace(/\/$/, "");
-
-export const backendMode: "n8n" | "local" = N8N_BASE ? "n8n" : "local";
+export const backendMode: "n8n" | "local" = "local";
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
@@ -31,7 +19,20 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
 
-  const result = (await response.json()) as ApiResult<T>;
+  // Read as text first: an empty or non-JSON body (e.g. a proxy error page, or
+  // the old n8n webhook's empty 200) must become a clear error, not a raw
+  // "JSON.parse: unexpected end of data" in front of the user.
+  const text = await response.text();
+  let result: ApiResult<T>;
+  try {
+    result = JSON.parse(text) as ApiResult<T>;
+  } catch {
+    throw new Error(
+      `Backend returned a non-JSON response (${response.status})${
+        text ? `: ${text.slice(0, 120)}` : " — empty body"
+      }`,
+    );
+  }
   if (!result.ok) throw new Error(result.error);
   return result.data;
 }
@@ -43,18 +44,13 @@ export interface TriageResponse {
 }
 
 export async function runTriage(note: string): Promise<TriageResponse> {
-  // Always the local route, even when the rest of the pipeline is on n8n.
-  // /api/triage runs Claude (Haiku) directly with ANTHROPIC_API_KEY, whereas the
-  // n8n workflow's "Extract Triage With Claude" node is a disabled placeholder
-  // that would silently return the keyword fallback. Triage is the AI step, so
-  // it goes where the AI actually runs. Fleet/hospital ranking still honour
-  // backendMode — they're deterministic and n8n-parity-tested.
+  // /api/triage runs Claude (Haiku) directly with ANTHROPIC_API_KEY.
   return postJson<TriageResponse>("/api/triage", { note });
 }
 
 /**
- * A neutral stand-in for the n8n /mediroute/plan contract, which requires a
- * triage object in its body. selectAmbulance() never reads it — fleet
+ * A neutral stand-in for the /api/plan contract, which requires a triage
+ * object in its body. selectAmbulance() never reads it — fleet
  * ranking only needs the incident location — so the dispatcher, who no
  * longer runs triage at all, has nothing real to put here. Never shown to a
  * user; exists purely to satisfy an API shape that predates this split.
@@ -73,15 +69,14 @@ const NEUTRAL_TRIAGE: Triage = {
  * plus a pick — triage and hospital ranking both happen later, on the crew's
  * own screen, which is why this takes no triage argument.
  *
- * Both backends expose the combined plan webhook (/api/plan locally, the n8n
- * /mediroute/plan otherwise), which requires a triage object, so the call sends
- * NEUTRAL_TRIAGE and keeps only the `fleet` half of the response.
+ * /api/plan is a combined fleet+hospital endpoint that requires a triage
+ * object, so the call sends NEUTRAL_TRIAGE and keeps only the `fleet` half.
  */
 export async function getFleetPlan(incident: LatLng): Promise<AmbulanceSelection> {
-  const plan = await postJson<{ fleet: AmbulanceSelection }>(
-    N8N_BASE ? `${N8N_BASE}/mediroute/plan` : "/api/plan",
-    { triage: NEUTRAL_TRIAGE, incident },
-  );
+  const plan = await postJson<{ fleet: AmbulanceSelection }>("/api/plan", {
+    triage: NEUTRAL_TRIAGE,
+    incident,
+  });
   return plan.fleet;
 }
 
@@ -93,10 +88,10 @@ export async function getHospitalPlan(
   triage: Triage,
   incident: LatLng,
 ): Promise<Recommendation> {
-  const plan = await postJson<{ hospitals: Recommendation }>(
-    N8N_BASE ? `${N8N_BASE}/mediroute/plan` : "/api/plan",
-    { triage, incident },
-  );
+  const plan = await postJson<{ hospitals: Recommendation }>("/api/plan", {
+    triage,
+    incident,
+  });
   return plan.hospitals;
 }
 
@@ -122,7 +117,7 @@ export async function assignAmbulance(
   payload: AssignAmbulancePayload,
 ): Promise<DispatchRecord> {
   return postJson<DispatchRecord>(
-    N8N_BASE ? `${N8N_BASE}/mediroute/dispatch` : "/api/dispatch",
+    "/api/dispatch",
     {
       ...payload,
       hospital_id: null,
@@ -156,10 +151,7 @@ export interface ConfirmMissionPayload {
 export async function confirmMission(
   payload: ConfirmMissionPayload,
 ): Promise<DispatchRecord> {
-  return postJson<DispatchRecord>(
-    N8N_BASE ? `${N8N_BASE}/mediroute/dispatch/confirm` : "/api/dispatch/confirm",
-    payload,
-  );
+  return postJson<DispatchRecord>("/api/dispatch/confirm", payload);
 }
 
 export interface RouteResult {
