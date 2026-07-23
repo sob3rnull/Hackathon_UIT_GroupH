@@ -78,11 +78,19 @@ type CapturePath = "checking" | "server" | "browser" | "none";
 
 export function VoiceInput({
   onTranscript,
+  onTranscriptComplete,
   onListeningChange,
   disabled,
 }: {
   /** Called with the full transcript so far (interim + final). */
   onTranscript: (text: string) => void;
+  /**
+   * Fires once with the final text when a server (Whisper/Groq) transcription
+   * completes — the hook that lets the caller hand the transcript straight to
+   * Claude. Not called on the browser path, whose interim results would
+   * otherwise trigger a triage on every partial word.
+   */
+  onTranscriptComplete?: (text: string) => void;
   onListeningChange?: (listening: boolean) => void;
   disabled?: boolean;
 }) {
@@ -197,6 +205,7 @@ export function VoiceInput({
         return;
       }
       onTranscript(result.data.text);
+      onTranscriptComplete?.(result.data.text);
     } catch (cause) {
       setError(
         cause instanceof Error

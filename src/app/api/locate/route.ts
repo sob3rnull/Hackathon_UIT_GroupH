@@ -15,30 +15,16 @@ const bodySchema = z.object({
  * landmark and we look the coordinates up in our own gazetteer, so a
  * hallucinated lat/lng can never reach the map.
  */
+// Terse descriptions/prompt keep the per-call input tokens down.
 const extractionSchema = z.object({
   landmark: z
     .string()
-    .describe(
-      "The single Yangon place or landmark the incident is nearest to, in " +
-        "English if you recognise it (e.g. 'Sule Pagoda', 'Hledan Junction'). " +
-        "Empty string if the note names no location.",
-    ),
-  incidentType: z
-    .string()
-    .describe("Short description of what happened, e.g. 'traffic collision'."),
+    .describe("Nearest Yangon place/landmark in English if recognised, else empty."),
+  incidentType: z.string().describe("Short incident type, e.g. 'traffic collision'."),
   confidence: z.number().min(0).max(1),
 });
 
-const SYSTEM = `You read a 119 ambulance dispatcher's note about an incident in
-Yangon, Myanmar. The note may be English, Burmese, or a mix.
-
-Return the single Yangon landmark or place name the incident is closest to, plus
-a short incident type. Prefer well-known landmarks, junctions, townships,
-markets, pagodas, lakes, stations and the airport.
-
-You MUST NOT output coordinates, latitude or longitude — only a place name. If
-the note gives no usable location, return an empty landmark string with low
-confidence. Be honest with confidence: a vague or location-free note is low.`;
+const SYSTEM = `Read a 119 dispatcher's incident note from Yangon, Myanmar (English/Burmese). Return the single nearest well-known Yangon place name (junction, township, market, pagoda, lake, station, airport) and a short incident type. NEVER output coordinates. No usable location → empty landmark, low confidence.`;
 
 /** Dispatcher note → { landmark, incidentType, confidence } → gazetteer coords. */
 export async function POST(request: Request) {
@@ -66,8 +52,9 @@ export async function POST(request: Request) {
   try {
     const client = new Anthropic();
     const response = await client.messages.parse({
-      model: "claude-opus-4-8",
-      max_tokens: 512,
+      // Haiku 4.5 — cheapest capable model; the output is a tiny landmark object.
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 200,
       system: SYSTEM,
       messages: [{ role: "user", content: parsed.data.text }],
       output_config: { format: zodOutputFormat(extractionSchema) },

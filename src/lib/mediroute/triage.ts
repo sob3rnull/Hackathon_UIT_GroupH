@@ -35,26 +35,14 @@ export interface TriageResult {
 
 export const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY);
 
-const SYSTEM = `You are a triage assistant for ambulance dispatch in Yangon, Myanmar.
-
-Extract structured triage data from a paramedic's free-text note.
-The note may be typed English, typed Burmese, or a speech-to-text transcript of
-Burmese emergency speech. Understand common Burmese medical clauses and map them
-to the same structured output.
-
-This is DECISION SUPPORT for a trained dispatcher who reviews every result before
-acting. You are never the final decision.
-
+// Kept terse on purpose: fewer input tokens per call. Every rule that changes
+// the output still earns its place; prose that didn't was cut.
+const SYSTEM = `Triage assistant for ambulance dispatch in Yangon, Myanmar. Extract structured triage from a paramedic's note (typed English, typed Burmese, or Burmese speech-to-text). Decision support only — a dispatcher reviews every result.
 Rules:
-- If the note is ambiguous or information is missing, choose the HIGHER severity.
-- needsICU is true when the patient plausibly requires intensive care on arrival
-  (unstable vitals, altered consciousness, major trauma, suspected MI or stroke).
-- redFlags: the specific clinical findings in the note that drove your call.
-  Quote or closely paraphrase the note. This is shown to the dispatcher as the
-  justification, so it must be traceable to the input — never invent findings.
-- If the input is Burmese, keep redFlags traceable to the Burmese wording and do
-  not translate away clinically important details.
-- confidence: 0..1. Be honest. A vague note deserves a low number.`;
+- Ambiguous or missing info → choose the HIGHER severity.
+- needsICU: true when intensive care is plausibly needed on arrival (unstable vitals, altered consciousness, major trauma, suspected MI or stroke).
+- redFlags: the specific findings from the note that drove your call. Quote or closely paraphrase — never invent. If the note is Burmese, keep redFlags traceable to the Burmese wording.
+- confidence 0..1, honest. A vague note deserves a low number.`;
 
 function specialtyOf(condition: Condition) {
   return specialtyFor[condition] ?? "general";
@@ -70,8 +58,9 @@ export async function runTriage(note: string): Promise<TriageResult> {
   try {
     const client = new Anthropic();
     const response = await client.messages.parse({
-      model: "claude-opus-4-8",
-      max_tokens: 1024,
+      // Haiku 4.5 — cheapest capable model; triage is a short structured extract.
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 400,
       system: SYSTEM,
       messages: [{ role: "user", content: note }],
       output_config: { format: zodOutputFormat(triageSchema) },

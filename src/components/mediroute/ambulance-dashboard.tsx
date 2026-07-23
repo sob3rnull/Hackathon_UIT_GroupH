@@ -278,12 +278,15 @@ export function AmbulanceDashboard() {
     }
   }
 
-  async function handleRunTriage() {
-    if (!mission || crewNote.trim().length < 3) return;
+  async function handleRunTriage(noteOverride?: string) {
+    // noteOverride lets a just-completed voice transcript run triage without
+    // waiting for the crewNote state to flush — the voice → Claude link.
+    const note = (noteOverride ?? crewNote).trim();
+    if (!mission || note.length < 3) return;
     setTriaging(true);
     setWriteError(null);
     try {
-      const result = await runTriage(crewNote);
+      const result = await runTriage(note);
       setTriage(result.triage);
       setTriageSource(result.source);
       setTriageSourceNote(result.note ?? null);
@@ -531,6 +534,11 @@ export function AmbulanceDashboard() {
                 if (listening) setCrewNote("");
               }}
               onTranscript={setCrewNote}
+              onTranscriptComplete={(text) => {
+                // Groq transcription done → hand it straight to Claude.
+                setCrewNote(text);
+                void handleRunTriage(text);
+              }}
             />
 
             <Field label={t("ambulancePage.descriptionLabel")} htmlFor="crew-note">
@@ -544,7 +552,7 @@ export function AmbulanceDashboard() {
             </Field>
 
             <Button
-              onClick={handleRunTriage}
+              onClick={() => handleRunTriage()}
               disabled={triaging || crewNote.trim().length < 3}
               className="self-start"
             >
