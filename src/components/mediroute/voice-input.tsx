@@ -99,7 +99,9 @@ export function VoiceInput({
   const [path, setPath] = useState<CapturePath>("checking");
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [language, setLanguage] = useState<SpeechLanguage>("my-MM");
+  // No default on purpose: the crew must pick Burmese or English before they can
+  // dictate, so the language is a deliberate up-front choice, not a silent guess.
+  const [language, setLanguage] = useState<SpeechLanguage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -223,7 +225,7 @@ export function VoiceInput({
 
   function startBrowserSpeech() {
     const Ctor = getRecognitionCtor();
-    if (!Ctor) return;
+    if (!Ctor || !language) return;
 
     setError(null);
     finalRef.current = "";
@@ -268,6 +270,7 @@ export function VoiceInput({
   }
 
   const start = () => {
+    if (!language) return; // must choose Burmese or English first
     if (path === "server") void startRecording();
     else startBrowserSpeech();
   };
@@ -310,7 +313,7 @@ export function VoiceInput({
         <button
           type="button"
           onClick={listening ? stop : start}
-          disabled={busy}
+          disabled={busy || !language}
           className={cn(
             "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors",
             listening
@@ -340,6 +343,9 @@ export function VoiceInput({
       </div>
 
       {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {!language ? (
+        <p className="text-xs text-accent">{t("voice.chooseLanguageFirst")}</p>
+      ) : null}
       {listening ? (
         <p className="text-xs text-muted">
           {path === "server" ? t("voice.listeningServer") : t("voice.listeningBrowser")}

@@ -376,6 +376,7 @@ const en = {
     transcribing: "Transcribing…",
     languageBurmese: "Burmese",
     languageEnglish: "English",
+    chooseLanguageFirst: "Choose Burmese or English before you dictate.",
     micDenied: "Microphone permission denied",
     speechUnreachable: "Speech service unreachable — type the note instead",
     voiceError: "Voice input error: {{error}}",

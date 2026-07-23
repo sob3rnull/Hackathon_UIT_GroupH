@@ -43,10 +43,13 @@ export interface TriageResponse {
 }
 
 export async function runTriage(note: string): Promise<TriageResponse> {
-  return postJson<TriageResponse>(
-    N8N_BASE ? `${N8N_BASE}/mediroute/triage` : "/api/triage",
-    { note },
-  );
+  // Always the local route, even when the rest of the pipeline is on n8n.
+  // /api/triage runs Claude (Haiku) directly with ANTHROPIC_API_KEY, whereas the
+  // n8n workflow's "Extract Triage With Claude" node is a disabled placeholder
+  // that would silently return the keyword fallback. Triage is the AI step, so
+  // it goes where the AI actually runs. Fleet/hospital ranking still honour
+  // backendMode — they're deterministic and n8n-parity-tested.
+  return postJson<TriageResponse>("/api/triage", { note });
 }
 
 /**
