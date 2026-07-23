@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useT } from "@/lib/i18n/context";
+import { mediaUrl } from "@/lib/media";
 
 /**
  * Trust section for the public donation page: photos of Myanmar hospital and
@@ -12,9 +13,11 @@ import { useT } from "@/lib/i18n/context";
  * taken by this team, and several show identifiable patients and staff, so
  * the honest framing matters as much as the visual.
  *
- * Drop files at public/gallery/gallery-1.jpg .. gallery-10.jpg (any of jpg/
- * jpeg/png/webp — update EXTENSIONS below if you use something else). A
- * missing file just fails to load its own tile; it doesn't break the page.
+ * Images load from the public Supabase Storage "media" bucket when
+ * configured (upload as gallery/gallery-1.jpg .. gallery-10.jpg), falling
+ * back to the same paths under public/gallery/ otherwise — see
+ * src/lib/media.ts. A missing file just fails to load its own tile; it
+ * doesn't break the page.
  */
 
 const COUNT = 10;
@@ -36,7 +39,7 @@ export function ImpactGallery() {
             className="relative aspect-square overflow-hidden rounded-card border border-border bg-surface-muted"
           >
             <Image
-              src={`/gallery/gallery-${n}.jpg`}
+              src={mediaUrl(`gallery/gallery-${n}.jpg`)}
               alt={t("gallery.photoAlt", { count: n })}
               fill
               sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"

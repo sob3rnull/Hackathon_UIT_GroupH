@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Ambulance,
@@ -16,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardDescription, CardTitle } from "@/components/ui/card";
 import { HospitalDirectory } from "@/components/mediroute/hospital-directory";
 import { ImpactGallery } from "@/components/mediroute/impact-gallery";
+import { mediaUrl } from "@/lib/media";
 
 /**
  * The public face of WheeYaw: a directory of the hospitals in the network
@@ -38,8 +40,21 @@ export default function HomePage() {
 
   return (
     <>
-      <section className="hero-glow border-b border-border">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-5 px-5 py-14 text-center sm:py-18">
+      <section className="relative overflow-hidden border-b border-border">
+        {/* Yangon General Hospital, faded well behind the text — a sense of
+            place, not a banner. The gradient scrim guarantees contrast in
+            both themes regardless of how bright/dark the photo is. */}
+        <Image
+          src={mediaUrl("hero-hospital.jpg")}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover opacity-15 dark:opacity-10"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/85 to-background" />
+
+        <div className="hero-glow relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-5 px-5 py-14 text-center sm:py-18">
           <Badge tone="accent">{t("home.heroBadge")}</Badge>
 
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -66,9 +81,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      <HospitalDirectory />
-
       <ImpactGallery />
+
+      <HospitalDirectory />
 
       {/* ── Role entry points ────────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-7xl px-5 py-12">
