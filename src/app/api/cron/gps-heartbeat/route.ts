@@ -28,8 +28,13 @@ import { createAdminClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
+    // Accept either the header (what Vercel Cron sends automatically) or a
+    // ?secret= query param — free external schedulers (cron-job.org and
+    // similar) often can't set custom headers reliably, so the URL itself
+    // can carry it: https://your-app/api/cron/gps-heartbeat?secret=...
     const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
+    const querySecret = new URL(request.url).searchParams.get("secret");
+    if (auth !== `Bearer ${secret}` && querySecret !== secret) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
   }
