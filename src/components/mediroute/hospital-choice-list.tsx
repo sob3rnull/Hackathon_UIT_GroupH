@@ -90,6 +90,15 @@ export function HospitalChoiceList({
             const isSelected = entry.hospital.id === selectedId;
             const specialists =
               entry.hospital.doctors_on_duty[rec.triage.requiredSpecialty] ?? 0;
+            // Capability tier for this patient's need — a label, not a filter:
+            // does the destination have a specialist on duty now (specialist),
+            // the department but no one on shift (on-call), or only general
+            // cover (general)? Purely derived from data the row already has.
+            const hasSpecialty = entry.hospital.specialties.includes(
+              rec.triage.requiredSpecialty,
+            );
+            const tier =
+              specialists > 0 ? "specialist" : hasSpecialty ? "onCall" : "general";
             const erPercent = entry.hospital.er_capacity
               ? Math.round(
                   (entry.hospital.current_er_queue / entry.hospital.er_capacity) * 100,
@@ -110,6 +119,9 @@ export function HospitalChoiceList({
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-lg font-medium">{entry.hospital.short_name}</span>
+                  <Badge tone={tier === "specialist" ? "success" : tier === "onCall" ? "warning" : "neutral"}>
+                    {t(`hospitalChoice.capability.${tier}`)}
+                  </Badge>
                   {index === 0 ? <Badge tone="accent">{t("hospitalChoice.recommended")}</Badge> : null}
                   {isSelected && index !== 0 ? (
                     <Badge tone="warning">{t("hospitalChoice.yourChoice")}</Badge>

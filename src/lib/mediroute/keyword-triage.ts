@@ -11,24 +11,59 @@ interface ConditionHint {
   pattern: RegExp;
 }
 
+// Ordered most-specific first: the first pattern to match wins, so a cardiac
+// arrest is named as such rather than falling into generic "cardiac".
 const CONDITION_HINTS: ConditionHint[] = [
+  {
+    condition: "cardiac_arrest",
+    label: "cardiac arrest",
+    pattern: /\b(cardiac arrest|no pulse|pulseless|asystole|\bcpr\b|resuscitat)\b|နှလုံးရပ်/i,
+  },
+  {
+    condition: "heart_attack",
+    label: "heart attack",
+    pattern:
+      /\b(heart attack|myocardial|\bmi\b|stemi|nstemi|acute coronary|\bacs\b)\b|နှလုံးဖောက်/i,
+  },
+  {
+    condition: "arrhythmia",
+    label: "arrhythmia",
+    pattern:
+      /\b(arrhythmia|palpitation|atrial fib|\bafib\b|tachycardi|bradycardi|fibrillation|irregular (heart|pulse|beat))\b|နှလုံးခုန်မမှန်|ရင်တုန်|နှလုံးတုန်/i,
+  },
   {
     condition: "cardiac",
     label: "cardiac",
-    pattern:
-      /\b(chest pain|cardiac|heart|mi\b|myocardial|angina|palpitation|arrest)\b|ရင်ဘတ်.*?အောင့်|ရင်ဘတ်နာ|ရင်တုန်|နှလုံး|နှလုံးဖောက်|နှလုံးရပ်/i,
+    pattern: /\b(chest pain|cardiac|heart|angina)\b|ရင်ဘတ်.*?အောင့်|ရင်ဘတ်နာ|နှလုံး/i,
   },
   {
     condition: "stroke",
     label: "stroke",
     pattern:
-      /\b(stroke|facial droop|slurred|hemipleg|aphasi|fast test|cva\b|weakness on one side)\b|လေဖြတ်|ပါးရွဲ့|စကားမပြောနိုင်|စကားမပီ|တစ်ဖက်အားနည်း|လက်ခြေမလှုပ်/i,
+      /\b(stroke|facial droop|slurred|hemipleg|aphasi|fast test|\bcva\b|weakness on one side)\b|လေဖြတ်|ပါးရွဲ့|စကားမပြောနိုင်|စကားမပီ|တစ်ဖက်အားနည်း|လက်ခြေမလှုပ်/i,
+  },
+  {
+    condition: "seizure",
+    label: "seizure",
+    pattern:
+      /\b(seizure|convuls|epilep|fitting|fits?|status epilepticus)\b|တက်ခြင်း|တက်နေ|တက်ရော/i,
+  },
+  {
+    condition: "fracture",
+    label: "fracture",
+    pattern:
+      /\b(fracture|broken bone|broken (arm|leg|hip|wrist|ankle|femur)|dislocat)\b|အရိုးကျိုး|အရိုးကျ|အရိုးပြတ်/i,
+  },
+  {
+    condition: "respiratory",
+    label: "respiratory",
+    pattern:
+      /\b(respirator|shortness of breath|short of breath|dyspn|difficulty breathing|can'?t breathe|cannot breathe|asthma|copd|choking|wheez)\b|အသက်ရှူကျပ်|အသက်ရှူခက်|ရှူမဝ|ပန်းနာ/i,
   },
   {
     condition: "burn",
     label: "burn",
-    pattern:
-      /\b(burn|scald|fire|flame|thermal)\b|မီးလောင်|ရေနွေးပူ|အပူလောင်|ဆီပူ/i,
+    pattern: /\b(burn|scald|fire|flame|thermal)\b|မီးလောင်|ရေနွေးပူ|အပူလောင်|ဆီပူ/i,
   },
   {
     condition: "obstetric",
@@ -37,16 +72,16 @@ const CONDITION_HINTS: ConditionHint[] = [
       /\b(pregnan|labou?r|contraction|obstetric|delivery|miscarriage|eclamps)\b|ကိုယ်ဝန်|မီးဖွား|ဗိုက်နာ|သားဖွား|ကလေးမွေး|မွေးဖွား|သွေးဆင်း/i,
   },
   {
-    condition: "paediatric",
-    label: "paediatric",
-    pattern:
-      /\b(child|infant|baby|toddler|paediatric|pediatric|\b[1-9] ?(year|yr|month)s? old)\b|ကလေး|မွေးကင်းစ|နို့စို့|ကလေးငယ်/i,
-  },
-  {
     condition: "trauma",
     label: "trauma",
     pattern:
-      /\b(trauma|fracture|rta\b|road traffic|accident|fall|stab|gunshot|laceration|collision|crush)\b|ယာဉ်တိုက်|ကားတိုက်|ဆိုင်ကယ်တိုက်|မတော်တဆ|ပြုတ်ကျ|ကျိုး|ဒဏ်ရာ|သွေးထွက်|ဓားထိုး|တိုက်မိ/i,
+      /\b(trauma|rta\b|road traffic|accident|fall|stab|gunshot|laceration|collision|crush|assault)\b|ယာဉ်တိုက်|ကားတိုက်|ဆိုင်ကယ်တိုက်|မတော်တဆ|ပြုတ်ကျ|ဒဏ်ရာ|သွေးထွက်|ဓားထိုး|တိုက်မိ/i,
+  },
+  {
+    condition: "paediatric",
+    label: "paediatric",
+    pattern:
+      /\b(child|infant|baby|toddler|paediatric|pediatric|newborn|\b[1-9] ?(year|yr|month)s? old)\b|ကလေး|မွေးကင်းစ|နို့စို့|ကလေးငယ်/i,
   },
 ];
 

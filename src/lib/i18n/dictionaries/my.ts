@@ -183,12 +183,18 @@ const my = {
       stable: "တည်ငြိမ်",
     },
     condition: {
+      cardiac_arrest: "နှလုံးရပ်တန့်",
+      heart_attack: "နှလုံးဖောက်",
+      arrhythmia: "နှလုံးခုန်မမှန်",
       cardiac: "နှလုံးရောဂါ",
-      trauma: "ထိခိုက်ဒဏ်ရာ",
       stroke: "လေဖြတ်ခြင်း",
+      seizure: "တက်ခြင်း",
+      fracture: "အရိုးကျိုး",
+      trauma: "ထိခိုက်ဒဏ်ရာ",
       burn: "မီးလောင်ဒဏ်ရာ",
       obstetric: "သားဖွားမီးယပ်",
       paediatric: "ကလေးရောဂါ",
+      respiratory: "အသက်ရှူကျပ်",
       general: "ယေဘုယျ",
     },
     specialty: {
@@ -404,6 +410,11 @@ const my = {
     minShort: "{{count}} မိနစ်",
     bedsIcuLine: "အိပ်ရာ {{beds}} · ICU {{icu}} · {{specialty}} {{specialists}} · အရေးပေါ်ဌာန {{er}}%",
     counterfactual: "အကွာအဝေးသက်သက် လမ်းကြောင်းဆွဲလျှင် ပို့မည်မှာ — {{name}} — {{reason}}",
+    capability: {
+      specialist: "ကျွမ်းကျင်ဆရာဝန် တာဝန်ကျ",
+      onCall: "ခေါ်ယူရမည်",
+      general: "ယေဘုယျသာ",
+    },
   },
 
   triageSummary: {

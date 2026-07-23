@@ -183,12 +183,18 @@ const en = {
       stable: "stable",
     },
     condition: {
+      cardiac_arrest: "cardiac arrest",
+      heart_attack: "heart attack",
+      arrhythmia: "arrhythmia",
       cardiac: "cardiac",
-      trauma: "trauma",
       stroke: "stroke",
+      seizure: "seizure",
+      fracture: "fracture",
+      trauma: "trauma",
       burn: "burn",
       obstetric: "obstetric",
       paediatric: "paediatric",
+      respiratory: "respiratory",
       general: "general",
     },
     specialty: {
@@ -404,6 +410,11 @@ const en = {
     minShort: "{{count}} min",
     bedsIcuLine: "{{beds}} beds · {{icu}} ICU · {{specialists}} {{specialty}} · ER {{er}}%",
     counterfactual: "Distance-only routing would send: {{name}} — {{reason}}",
+    capability: {
+      specialist: "Specialist on duty",
+      onCall: "On-call",
+      general: "General only",
+    },
   },
 
   triageSummary: {

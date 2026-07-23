@@ -39,6 +39,7 @@ export const hasAnthropicKey = Boolean(process.env.ANTHROPIC_API_KEY);
 // the output still earns its place; prose that didn't was cut.
 const SYSTEM = `Triage assistant for ambulance dispatch in Yangon, Myanmar. Extract structured triage from a paramedic's note (typed English, typed Burmese, or Burmese speech-to-text). Decision support only — a dispatcher reviews every result.
 Rules:
+- condition: pick the MOST SPECIFIC that fits — e.g. cardiac_arrest / heart_attack / arrhythmia over generic cardiac, fracture over trauma, seizure over stroke, respiratory over general. Fall back to the generic only when the note doesn't say.
 - Ambiguous or missing info → choose the HIGHER severity.
 - needsICU: true when intensive care is plausibly needed on arrival (unstable vitals, altered consciousness, major trauma, suspected MI or stroke).
 - redFlags: the specific findings from the note that drove your call. Quote or closely paraphrase — never invent. If the note is Burmese, keep redFlags traceable to the Burmese wording.

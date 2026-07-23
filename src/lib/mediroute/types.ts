@@ -1,12 +1,22 @@
 import { z } from "zod";
 
 export const conditions = [
+  // Cardiac, most-specific first so triage can name what it actually is.
+  "cardiac_arrest",
+  "heart_attack",
+  "arrhythmia",
   "cardiac",
-  "trauma",
+  // Neuro
   "stroke",
+  "seizure",
+  // Trauma / ortho
+  "fracture",
+  "trauma",
+  // The rest
   "burn",
   "obstetric",
   "paediatric",
+  "respiratory",
   "general",
 ] as const;
 export type Condition = (typeof conditions)[number];
@@ -16,12 +26,18 @@ export type Severity = (typeof severities)[number];
 
 /** Condition → the hospital service that must be present to treat it. */
 export const specialtyFor: Record<Condition, string> = {
+  cardiac_arrest: "cardiology",
+  heart_attack: "cardiology",
+  arrhythmia: "cardiology",
   cardiac: "cardiology",
-  trauma: "trauma",
   stroke: "neurology",
+  seizure: "neurology",
+  fracture: "orthopaedics",
+  trauma: "trauma",
   burn: "burns",
   obstetric: "obstetrics",
   paediatric: "paediatrics",
+  respiratory: "general",
   general: "general",
 };
 
