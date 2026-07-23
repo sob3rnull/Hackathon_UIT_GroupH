@@ -291,6 +291,9 @@ export async function createDispatch(input: DispatchInput): Promise<DispatchRow>
       ...input,
       id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
+      status: "pending",
+      accepted_at: null,
+      arrived_at: null,
     };
     dispatchMemory().unshift(row);
     return row;

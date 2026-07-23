@@ -21,6 +21,9 @@ export interface DispatchRecord {
   input_mode: string;
   was_override: boolean;
   created_at: string;
+  status: string;
+  accepted_at: string | null;
+  arrived_at: string | null;
 }
 
 interface DispatchFeed {
