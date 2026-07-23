@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useT } from "@/lib/i18n/context";
-import { mediaUrl } from "@/lib/media";
+import { useGallery } from "@/lib/mediroute/use-gallery";
 
 /**
  * Trust section for the public donation page: photos of Myanmar hospital and
@@ -13,17 +13,15 @@ import { mediaUrl } from "@/lib/media";
  * taken by this team, and several show identifiable patients and staff, so
  * the honest framing matters as much as the visual.
  *
- * Images load from the public Supabase Storage "media" bucket when
- * configured (upload as gallery/gallery-1.jpg .. gallery-10.jpg), falling
- * back to the same paths under public/gallery/ otherwise — see
- * src/lib/media.ts. A missing file just fails to load its own tile; it
- * doesn't break the page.
+ * The photo set is live (see use-gallery.ts): when Supabase is configured,
+ * an admin adding or removing a photo (src/components/admin/media-manager.tsx)
+ * shows up here on reload, no redeploy needed.
  */
-
-const COUNT = 10;
-
 export function ImpactGallery() {
   const t = useT();
+  const { photos, loading } = useGallery();
+
+  if (!loading && photos.length === 0) return null;
 
   return (
     <section className="mx-auto w-full max-w-7xl px-5 py-12">
@@ -33,20 +31,27 @@ export function ImpactGallery() {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: COUNT }, (_, i) => i + 1).map((n) => (
-          <div
-            key={n}
-            className="relative aspect-square overflow-hidden rounded-card border border-border bg-surface-muted"
-          >
-            <Image
-              src={mediaUrl(`gallery/gallery-${n}.jpg`)}
-              alt={t("gallery.photoAlt", { count: n })}
-              fill
-              sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
-              className="object-cover"
-            />
-          </div>
-        ))}
+        {loading
+          ? Array.from({ length: 5 }, (_, i) => (
+              <div
+                key={i}
+                className="aspect-square animate-pulse rounded-card border border-border bg-surface-muted"
+              />
+            ))
+          : photos.map((photo, index) => (
+              <div
+                key={photo.path}
+                className="relative aspect-square overflow-hidden rounded-card border border-border bg-surface-muted"
+              >
+                <Image
+                  src={photo.url}
+                  alt={t("gallery.photoAlt", { count: index + 1 })}
+                  fill
+                  sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+                  className="object-cover"
+                />
+              </div>
+            ))}
       </div>
 
       <p className="mt-4 text-xs text-muted">{t("gallery.disclaimer")}</p>
